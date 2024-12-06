@@ -8,6 +8,10 @@ impl Tokenizer {
     pub fn new() -> Self {
         Tokenizer { m_tokens: Vec::new() , m_index:0 }
     }
+    
+    pub fn get_tokens(&self) -> Vec<Token> {
+        self.m_tokens.clone()
+    }
     pub fn tokenize(&mut self, input: &str){
         dbg!(&input);
         let mut buf : Vec<char> = Vec::new();
@@ -53,7 +57,7 @@ impl Tokenizer {
 }
 
 
-
+#[derive(Clone)]
 pub enum Token {
     ID { name: String, span: (usize, usize) },
     Number { value: String, span: (usize, usize) },
