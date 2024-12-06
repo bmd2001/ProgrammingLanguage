@@ -16,7 +16,7 @@ impl Tokenizer {
         let mut peek = self.peek(input);
         while peek.is_some() {
             let last_char = peek.unwrap();
-            if last_char.is_alphanumeric(){
+            if last_char.is_alphanumeric() || buf.is_empty(){
                 buf.push(last_char);
             }
             let token = self.check_buf(&buf);
@@ -42,6 +42,8 @@ impl Tokenizer {
         let string_buf: String = buf.iter().collect();
         match string_buf.as_str() {
             "exit" => Some(Token::Exit {span : (0, self.m_index - 3)}),
+            "(" => Some(Token::OpenParen),
+            ")" => Some(Token::CloseParen),
             _ => None
         }
     }
@@ -52,6 +54,8 @@ impl Tokenizer {
 pub enum Token {
     ID { name: String, span: (usize, usize) },
     Number { value: String, span: (usize, usize) },
-    Exit {span: (usize, usize)}
+    Exit {span: (usize, usize)},
+    OpenParen,
+    CloseParen
 }
 
