@@ -71,17 +71,20 @@ impl Parser {
 }
 
 pub struct NodeProgram{
-    stmts: Vec<NodeStmt>
+    pub(crate) stmts: Vec<NodeStmt>
 }
 
-struct NodeStmt {
-    stmt: NodeExit
+#[derive(Clone)]
+pub(crate) struct NodeStmt {
+    pub(crate) stmt: NodeExit
 }
 
-struct NodeExit {
-    expr: NodePrimaryExpr
+#[derive(Clone)]
+pub(crate) struct NodeExit {
+    pub(crate) expr: NodePrimaryExpr
 }
 
-struct NodePrimaryExpr {
-    token: Token
+#[derive(Clone)]
+pub(crate) struct NodePrimaryExpr {
+    pub(crate) token: Token
 }

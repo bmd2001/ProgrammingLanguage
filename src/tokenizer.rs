@@ -21,7 +21,7 @@ impl Tokenizer {
             if last_char.is_alphanumeric() || buf.is_empty(){
                 buf.push(last_char);
             }
-            let token = self.check_buf(&buf);
+            let token = self.check_buf(&buf, input);
             if token.is_some() {
                 self.m_tokens.push(token.unwrap());
                 buf.clear();
@@ -41,14 +41,15 @@ impl Tokenizer {
         Some(c)
     }
 
-    fn check_buf(&mut self, buf : &Vec<char>) -> Option<Token> {
+    fn check_buf(&mut self, buf : &Vec<char>, input: &str) -> Option<Token> {
         let string_buf: String = buf.iter().collect();
         match string_buf.as_str() {
             "exit" => Some(Token::Exit {span : (0, self.m_index - 3)}),
             "(" => Some(Token::OpenParen),
             ")" => Some(Token::CloseParen),
             // Check if the buffer contains only digits and the next character is not a digit
-            _ if string_buf.chars().all(|c| c.is_digit(10)) && !self.peek(string_buf.as_str(), Some(1)).unwrap_or('a').is_digit(10) => {
+            _ if string_buf.chars().all(|c| c.is_digit(10)) && !self.peek(input, Some(1)).unwrap_or('a').is_digit(10) => {
+                dbg!(self.peek(input, Some(1)).unwrap_or('a'));
                 Some(Token::Number {value : string_buf.clone(), span: (0, self.m_index - string_buf.len()-1) })
             },
             _ => None
