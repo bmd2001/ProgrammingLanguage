@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use crate::parser::{NodeProgram, NodeStmt, NodeExit, NodePrimaryExpr, NodeVariableAssignement};
-use crate::tokenizer::Token;
+use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodePrimaryExpr, NodeVariableAssignement};
+use crate::compiler::tokenizer::{Token};
 
 pub struct Generator {
     m_prog: NodeProgram,

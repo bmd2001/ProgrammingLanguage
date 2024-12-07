@@ -1,4 +1,5 @@
-pub struct Tokenizer {
+ pub struct Tokenizer {
+    
     m_tokens : Vec<Token>,
     m_index: usize,
     m_line: usize,
@@ -102,4 +103,3 @@ pub enum Token {
     WhiteSpace,
     NotUsed
 }
-
