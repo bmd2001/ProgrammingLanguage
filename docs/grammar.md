@@ -10,6 +10,7 @@ $$
     \end{cases}\\
     \langle\:\text{Stmt}\:\rangle \to 
     \begin{cases}
+        \langle\:\text{ID}\:\rangle = \langle\:\text{Num}\:\rangle \\
         \text{exit}( \langle\:\text{PrimaryExpr}\:\rangle)\\
        % \text{var } \langle\:\text{Id}\:\rangle = \langle\:\text{PrimaryExpr}\:\rangle
     \end{cases} \\
