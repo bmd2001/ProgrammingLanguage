@@ -1,5 +1,7 @@
- pub struct Tokenizer {
-    
+use regex::Regex;
+
+pub struct Tokenizer {
+
     m_tokens : Vec<Token>,
     m_index: usize,
     m_line: usize,
@@ -11,12 +13,20 @@ impl Tokenizer {
     pub fn new() -> Self {
         Tokenizer { m_tokens: Vec::new() , m_index: 0, m_line: 0, m_visited: 0}
     }
-    
+
     pub fn get_tokens(&self) -> Vec<Token> {
         self.m_tokens.clone()
     }
+
+    fn clear(&mut self){
+        self.m_tokens = Vec::new();
+        self.m_index = 0;
+        self.m_line = 0;
+        self.m_visited = 0
+    }
     pub fn tokenize(&mut self, input: &str){
         dbg!(&input);
+        self.clear();
         let mut buf : Vec<char> = Vec::new();
         let mut peek = self.peek(input, None);
         while peek.is_some() {
@@ -48,9 +58,12 @@ impl Tokenizer {
     }
 
     fn check_buf(&mut self, buf : &Vec<char>, input: &str) -> Option<Token> {
-        let string_buf: String = buf.iter().collect();
+        let mut string_buf: String = buf.iter().collect();
+        let re = Regex::new(r" +").unwrap();
+        string_buf = re.replace_all(&*string_buf, " ").to_string();
+        //TODO Remove use of regex
         match string_buf.as_str() {
-            "exit" => Some(Token::Exit {span : (0, self.m_index - 3)}),
+            "exit" => Some(Token::Exit {span : (self.m_line, self.m_visited - 3)}),
             "(" => Some(Token::OpenParen),
             ")" => Some(Token::CloseParen),
             "=" => Some(Token::Equals),
@@ -65,21 +78,22 @@ impl Tokenizer {
             _ => {
                 if let Some(token) = self.tokenize_primary_expr(string_buf.as_str(), input) {
                     Some(token)
-                } else { 
+                } else {
                     None
                 }
             }
         }
     }
-    
+
     fn tokenize_primary_expr(&mut self, buf : &str, input: &str) -> Option<Token> {
         // Check if the buffer contains only digits and the next character is not a digit
-        if buf.chars().all(|c| c.is_digit(10)) && !self.peek(input, Some(1)).unwrap_or('a').is_digit(10){
+        let next_char = self.peek(input, Some(1)).unwrap_or(' ');
+        if buf.chars().all(|c| c.is_digit(10)) && !next_char.is_digit(10) && !next_char.is_alphabetic(){
             return Some(Token::Number {value : String::from(buf), span: (0, self.m_visited + 1 - buf.len()) })
         }
         // Check if the first character is alphabetical and all others are alphanumerical, while also checking the next character is a space
         else if let Some(first_char) = buf.chars().next() {
-            if first_char.is_alphabetic() && buf.chars().all(|c| c.is_alphanumeric() && !self.peek(input, Some(1)).unwrap_or(' ').is_alphanumeric()) {
+            if first_char.is_alphabetic() && buf.chars().all(|c| c.is_alphanumeric()) && !next_char.is_alphanumeric() {
                 // Return a token for this case (adjust as needed)
                 return Some(Token::ID {
                     name: String::from(buf),
@@ -92,7 +106,7 @@ impl Tokenizer {
 }
 
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     ID { name: String, span: (usize, usize) },
     Number { value: String, span: (usize, usize) },

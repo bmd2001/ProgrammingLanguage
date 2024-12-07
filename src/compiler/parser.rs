@@ -1,4 +1,3 @@
-use std::string::ParseError;
 use crate::compiler::tokenizer::Token;
 
 pub struct Parser {
