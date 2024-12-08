@@ -1,4 +1,4 @@
-use crate::compiler::tokenizer::Token;
+use crate::compiler::tokenizer::{Token, Operator};
 
 pub struct Parser {
     m_tokens: Vec<Token>, // Add lifetime annotation
@@ -112,14 +112,14 @@ impl Parser {
             return match &range[..3] {
                 [
                 Token::Number { value, span },
-                Token::Plus,
+                Token::Operator(op),
                 Token::Number { value: value1, span: span1 },
                 ] => {
                     self.advance(3, true);
                     Ok(NodeArithmeticExpr {
                         lhs: Token::Number { value: value.clone(), span: *span },
                         rhs: Token::Number { value: value1.clone(), span: *span1 },
-                        op: Token::Plus,
+                        op: op.clone(),
                     })
                 }
                 _ => Err("Invalid Arithmetic Expression.".to_string())
@@ -221,7 +221,7 @@ pub(crate) enum NodePrimaryExpr {
 pub(crate) struct NodeArithmeticExpr {
     pub(crate) lhs: Token,
     pub(crate) rhs: Token,
-    pub(crate) op: Token
+    pub(crate) op: Operator
 }
 
 #[derive(Clone)]

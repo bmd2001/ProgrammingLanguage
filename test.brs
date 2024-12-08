@@ -1,3 +1,4 @@
 xy = 2+4
-y = xy
+z = 4-3
+y = z
 exit(y)

@@ -25,7 +25,8 @@ $$
     \langle\:\text{ArithmeticExpr}\:\rangle \to \langle\:\text{Num}\:\rangle \langle\:\text{Op}\:\rangle\langle\:\text{Num}\:\rangle \\
     \langle\:\text{Op}\:\rangle \to
     \begin{cases}
-        \text{+}
+        + \\
+        -
     \end{cases}
 \end{gather}
 $$

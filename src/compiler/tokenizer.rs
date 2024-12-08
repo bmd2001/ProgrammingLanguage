@@ -47,14 +47,15 @@ impl Tokenizer {
     }
 
     fn check_buf(&mut self, buf : &Vec<char>, input: &str) -> Option<Token> {
-        let mut string_buf: String = buf.iter().collect();
+        let string_buf: String = buf.iter().collect();
         match string_buf.as_str() {
             "exit" => Some(Token::Exit {span : (self.m_line, self.m_visited - 3)}),
             "(" => Some(Token::OpenParen),
             ")" => Some(Token::CloseParen),
             "=" => Some(Token::Equals),
             " " => Some(Token::WhiteSpace),
-            "+" => Some(Token::Plus),
+            "+" => Some(Token::Operator(Operator::Plus)),
+            "-" => Some(Token::Operator(Operator::Minus)),
             "\n" => {
                 self.m_line += 1;
                 self.m_visited = 0;
@@ -108,7 +109,13 @@ pub enum Token {
     OpenParen,
     CloseParen,
     Equals,
-    Plus,
+    Operator(Operator),
     WhiteSpace,
     NotUsed
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Operator {
+    Plus,
+    Minus
 }

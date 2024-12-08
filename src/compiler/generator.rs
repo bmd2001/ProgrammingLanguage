@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodePrimaryExpr, NodeVariableAssignement, NodeArithmeticExpr};
-use crate::compiler::tokenizer::{Token};
+use crate::compiler::tokenizer::{Operator, Token};
 
 pub struct Generator {
     m_prog: NodeProgram,
@@ -86,7 +86,7 @@ impl Generator {
 
     fn generate_arithmetic_expr(&mut self, expr: &NodeArithmeticExpr) {
         match expr.op{
-            Token::Plus => {
+            Operator::Plus => {
                 self.m_output.push_str("\t; Addition\n ");
                 self.generate_base_primary_expr(&expr.rhs, true);
                 self.generate_base_primary_expr(&expr.lhs, true);
@@ -95,7 +95,15 @@ impl Generator {
                 self.m_output.push_str("\tadd rax, rbx\n");
                 self.push("rax");
             }
-            _ => {}
+            Operator::Minus => {
+                self.m_output.push_str("\t; Subtraction\n ");
+                self.generate_base_primary_expr(&expr.rhs, true);
+                self.generate_base_primary_expr(&expr.lhs, true);
+                self.pop("rax");
+                self.pop("rbx");
+                self.m_output.push_str("\tsub rax, rbx\n");
+                self.push("rax");
+            }
         }
     }
     
