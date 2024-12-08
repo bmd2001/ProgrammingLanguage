@@ -115,6 +115,18 @@ impl Parser {
         Some(self.m_tokens[self.m_index..self.m_index + count].to_owned())
     }
     
+    fn expect_token(&mut self, token_type: &Token, avoid_space: bool) -> bool {
+        if avoid_space {
+            while matches!(self.peek(None), Some(Token::WhiteSpace)) {
+                self.advance(1);
+            }
+        }
+        if let Some(token) = self.peek(None){
+            return matches!(token_type, token);
+        }
+        false
+    }
+    
 
     fn advance(&mut self, step: usize) {
         self.m_index = usize::min(self.m_index + step, self.m_tokens.len());
