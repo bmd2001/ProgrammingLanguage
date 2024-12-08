@@ -46,26 +46,15 @@ impl Tokenizer {
         dbg!(self.m_tokens.len());
     }
 
-    fn peek(&mut self, input: &str, offset: Option<usize>) -> Option<char> {
-        let off = offset.unwrap_or(0);
-        if self.m_index + off >= input.len() {
-            return None;
-        }
-        let c = input.chars().nth(self.m_index+off).unwrap(); // Accessing nth char
-        Some(c)
-    }
-
     fn check_buf(&mut self, buf : &Vec<char>, input: &str) -> Option<Token> {
         let mut string_buf: String = buf.iter().collect();
-        string_buf = string_buf.split_whitespace().collect::<Vec<&str>>().join(" ");
         match string_buf.as_str() {
             "exit" => Some(Token::Exit {span : (self.m_line, self.m_visited - 3)}),
             "(" => Some(Token::OpenParen),
             ")" => Some(Token::CloseParen),
             "=" => Some(Token::Equals),
-            " " => self
-                .peek(input, Some(1))
-                .map_or(Some(Token::WhiteSpace), |char| if char == ' ' { None } else { Some(Token::WhiteSpace) }),
+            " " => Some(Token::WhiteSpace),
+            "+" => Some(Token::Plus),
             "\n" => {
                 self.m_line += 1;
                 self.m_visited = 0;
@@ -99,6 +88,15 @@ impl Tokenizer {
         }
         None
     }
+
+    fn peek(&mut self, input: &str, offset: Option<usize>) -> Option<char> {
+        let off = offset.unwrap_or(0);
+        if self.m_index + off >= input.len() {
+            return None;
+        }
+        let c = input.chars().nth(self.m_index+off).unwrap(); // Accessing nth char
+        Some(c)
+    }
 }
 
 
@@ -110,6 +108,7 @@ pub enum Token {
     OpenParen,
     CloseParen,
     Equals,
+    Plus,
     WhiteSpace,
     NotUsed
 }

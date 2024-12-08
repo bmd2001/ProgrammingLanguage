@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodePrimaryExpr, NodeVariableAssignement};
+use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodePrimaryExpr, NodeVariableAssignement, NodeArithmeticExpr};
 use crate::compiler::tokenizer::{Token};
 
 pub struct Generator {
@@ -38,7 +38,7 @@ impl Generator {
     }
     
     fn generate_exit(&mut self, exit: &NodeExit){
-        self.m_output.push_str("\t; Exit call ");
+        self.m_output.push_str("\t; Exit call \n");
         self.generate_primary_expr(&exit.expr);
         self.m_output.push_str("\tmov rax, 0x2000001\n");
         self.pop("rdi");
@@ -48,7 +48,7 @@ impl Generator {
     fn generate_id(&mut self, var: &NodeVariableAssignement) {
         self.m_output.push_str("\t; VarAssignement\n");
         if let Token::ID {name, ..}  = &var.variable{
-            self.m_output.push_str(&format!("\t; {name} = "));
+            self.m_output.push_str(&format!("\t; {name} \n"));
             self.generate_primary_expr(&var.value);
             let stack_loc = self.m_id_names.len();
             self.m_id_names.insert(name.clone(), stack_loc);
@@ -56,20 +56,46 @@ impl Generator {
     }
     
     fn generate_primary_expr(&mut self, p_expr: &NodePrimaryExpr){
-        if let Token::Number { value, .. } = &p_expr.token {
-            self.m_output.push_str(&format!("{value}\n\tmov rax, {value}\n"));
-            self.push("rax");
-        } else if let Token::ID { name, ..}  = &p_expr.token{
-            if let Some(stack_loc) = self.m_id_names.get(name) {
-                let offset = self.m_stack_size.checked_sub(*(stack_loc) + 1).expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
-                self.m_output.push_str(&format!("{name}\n\t; Recuperate {name}'s value from stack\n\tmov rax, [rsp + {}]\n", offset * 8)); // Assuming 8-byte stack slots
-                self.push("rax");
-            } else {
-                eprintln!("Variable {name} not defined");
+        match p_expr {
+            NodePrimaryExpr::Base(token) => {
+                self.generate_base_primary_expr(token, false)
+            }
+            NodePrimaryExpr::Arithmetic(expr) => {
+                self.generate_arithmetic_expr(expr)
             }
         }
-        else{
-            eprintln!("Not supported");
+    }
+    
+    fn generate_base_primary_expr(&mut self, token: &Token, from_math: bool){
+        match token {
+            Token::ID { name, .. } => {
+                if let Some(stack_loc) = self.m_id_names.get(name) {
+                    let offset = self.m_stack_size.checked_sub(*(stack_loc) + 1).expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
+                    self.m_output.push_str(&format!("\t; Recuperate {name}'s value from stack\n\tmov rax, [rsp + {}]\n", offset * 8)); // Assuming 8-byte stack slots
+                    self.push("rax");
+                } else {
+                    eprintln!("Variable {name} not defined");
+                }
+            }
+            Token::Number { value, .. } => {
+                self.m_output.push_str(&format!("\tmov rax, {value}\n"));
+                self.push("rax");}
+            _ => {eprintln!("Generating Base Primary Expression went wrong")}
+        }
+    }
+
+    fn generate_arithmetic_expr(&mut self, expr: &NodeArithmeticExpr) {
+        match expr.op{
+            Token::Plus => {
+                self.m_output.push_str("\t; Addition\n ");
+                self.generate_base_primary_expr(&expr.rhs, true);
+                self.generate_base_primary_expr(&expr.lhs, true);
+                self.pop("rax");
+                self.pop("rbx");
+                self.m_output.push_str("\tadd rax, rbx\n");
+                self.push("rax");
+            }
+            _ => {}
         }
     }
     
@@ -82,4 +108,9 @@ impl Generator {
         self.m_output.push_str(format!("\tpop {reg}\n").as_str());
         self.m_stack_size -= 1;
     }
+    
+    fn comment_arithemtic_operation(self, expr: NodeArithmeticExpr){
+        
+    }
+    
 }
