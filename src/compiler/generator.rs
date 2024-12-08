@@ -38,7 +38,7 @@ impl Generator {
     }
     
     fn generate_exit(&mut self, exit: &NodeExit){
-        self.m_output.push_str("\t; Exit call\n");
+        self.m_output.push_str("\t; Exit call ");
         self.generate_primary_expr(&exit.expr);
         self.m_output.push_str("\tmov rax, 0x2000001\n");
         self.pop("rdi");
@@ -48,23 +48,21 @@ impl Generator {
     fn generate_id(&mut self, var: &NodeVariableAssignement) {
         self.m_output.push_str("\t; VarAssignement\n");
         if let Token::ID {name, ..}  = &var.variable{
-            if let Token::Number {value, ..} = &var.value{
-                let stack_loc = self.m_id_names.len();
-                self.m_output.push_str(format!("\t; {name} = {value}\n").as_str());
-                self.m_id_names.entry(name.clone()).or_insert(stack_loc);
-                self.push(format!("{value}").as_str());
-            }
+            self.m_output.push_str(&format!("\t; {name} = "));
+            self.generate_primary_expr(&var.value);
+            let stack_loc = self.m_id_names.len();
+            self.m_id_names.insert(name.clone(), stack_loc);
         }
     }
     
     fn generate_primary_expr(&mut self, p_expr: &NodePrimaryExpr){
         if let Token::Number { value, .. } = &p_expr.token {
-            self.m_output.push_str(&format!("\tmov rax, {}\n", value));
+            self.m_output.push_str(&format!("{value}\n\tmov rax, {value}\n"));
             self.push("rax");
         } else if let Token::ID { name, ..}  = &p_expr.token{
             if let Some(stack_loc) = self.m_id_names.get(name) {
                 let offset = self.m_stack_size.checked_sub(*(stack_loc) + 1).expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
-                self.m_output.push_str(&format!("\t; Recuperate variable value\n\tmov rax, [rsp + {}]\n", offset * 8)); // Assuming 8-byte stack slots
+                self.m_output.push_str(&format!("{name}\n\t; Recuperate {name}'s value from stack\n\tmov rax, [rsp + {}]\n", offset * 8)); // Assuming 8-byte stack slots
                 self.push("rax");
             } else {
                 eprintln!("Variable {name} not defined");

@@ -1,3 +1,7 @@
 xy = 21
-y = 10
-exit(y)
+xy = 2
+y = xy
+z = 34
+y = z
+xy = y
+exit(xy)

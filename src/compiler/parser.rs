@@ -58,19 +58,24 @@ impl Parser {
     
     fn parse_variable_assignement(&mut self) -> Result<NodeVariableAssignement, String>{
         if let Some(tokens) = self.peek_range(5){
-            match (&tokens[0], &tokens[1], &tokens[2], &tokens[3], &tokens[4]) {
+            match (&tokens[0], &tokens[1], &tokens[2], &tokens[3]) {
                 (
                     Token::ID { name, span },           // First token: Identifier
                     Token::WhiteSpace{},
                     Token::Equals { .. },            // Second token: Equals
                     Token::WhiteSpace{},
-                    Token::Number { value, span: number_span },     // Third token: Number
                 ) => {
-                    self.advance(5);
-                    return Ok(NodeVariableAssignement {
-                        variable: Token::ID { name: name.clone(), span: *span },
-                        value: Token::Number { value: value.clone(), span: *number_span },
-                    });
+                    
+                    self.advance(4);
+                    return match self.parse_primary_expr() {
+                        Ok(expr) => {
+                            Ok(NodeVariableAssignement {
+                                variable: Token::ID { name: name.clone(), span: *span },
+                                value: expr,  // The parsed value as a PrimaryExpr
+                            })
+                        }
+                        Err(e) => Err(e), // Handle the error if the last token is not a valid PrimaryExpr
+                    }
                 }
                 _ => {
                     return Err("Invalid syntax for variable assignment. Expected: 'ID = Number'.".to_string());
@@ -134,7 +139,7 @@ pub(crate) struct NodeExit {
 #[derive(Clone)]
 pub struct NodeVariableAssignement{
     pub(crate) variable: Token,
-    pub(crate) value: Token
+    pub(crate) value: NodePrimaryExpr
 }
 
 #[derive(Clone)]
