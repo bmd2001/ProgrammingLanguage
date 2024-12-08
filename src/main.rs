@@ -32,7 +32,7 @@ fn main() {
         .expect("Should have been able to read the file");
 
     println!("With text:\n{contents}");
-    let mut assembly: Result<String, String>;
+    let assembly: Result<String, String>;
     {
         let mut compiler = Compiler::new();
         assembly = compiler.compile(contents.as_str());

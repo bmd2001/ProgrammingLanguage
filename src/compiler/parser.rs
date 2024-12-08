@@ -234,9 +234,3 @@ pub(crate) struct NodeArithmeticExpr {
     pub(crate) rhs: Token,
     pub(crate) op: Operator
 }
-
-#[derive(Clone)]
-enum Either<L, R> {
-    Left(L),
-    Right(R),
-}
