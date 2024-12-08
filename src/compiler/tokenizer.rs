@@ -56,6 +56,7 @@ impl Tokenizer {
             " " => Some(Token::WhiteSpace),
             "+" => Some(Token::Operator(Operator::Plus)),
             "-" => Some(Token::Operator(Operator::Minus)),
+            "*" => Some(Token::Operator(Operator::Multiply)),
             "\n" => {
                 self.m_line += 1;
                 self.m_visited = 0;
@@ -117,5 +118,6 @@ pub enum Token {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Operator {
     Plus,
-    Minus
+    Minus,
+    Multiply,
 }

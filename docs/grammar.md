@@ -26,7 +26,8 @@ $$
     \langle\:\text{Op}\:\rangle \to
     \begin{cases}
         + \\
-        -
+        - \\
+        \times
     \end{cases}
 \end{gather}
 $$

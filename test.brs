@@ -1,4 +1,5 @@
-xy = 2+4
-z = 4-3
-y = z
-exit(y)
+x = 2+4
+y = 4-3
+z = 5*2
+xyz = z
+exit(xyz)
