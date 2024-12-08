@@ -10,25 +10,27 @@ $$
     \end{cases}\\
     \langle\:\text{Stmt}\:\rangle \to 
     \begin{cases}
-        \langle\:\text{ID}\:\rangle = \langle\:\text{PrimaryExpr}\:\rangle \\
-        \text{exit}( \langle\:\text{PrimaryExpr}\:\rangle)\\
-       % \text{var } \langle\:\text{Id}\:\rangle = \langle\:\text{PrimaryExpr}\:\rangle
+        \langle\:\text{ID}\:\rangle = \langle\:\text{ArithmeticExpr}\:\rangle \\
+        \text{exit}( \langle\:\text{ArithmeticExpr}\:\rangle)
     \end{cases} \\
-    \langle\:\text{PrimaryExpr}\:\rangle \to 
+    \langle\:\text{ArithmeticExpr}\:\rangle \to 
+    \begin{cases}
+        \langle\:\text{BaseExpr}\:\rangle \langle\:\text{Op}\:\rangle\langle\:\text{BaseExpr}\:\rangle \\
+        \langle\:\text{BaseExpr}\:\rangle
+    \end{cases} \\
+    \langle\:\text{BaseExpr}\:\rangle \to 
     \begin{cases}
         \langle\:\text{ID}\:\rangle \\
-        \langle\:\text{Num}\:\rangle \\
-        \langle\:\text{ArithmeticExpr}\:\rangle
+        \langle\:\text{Num}\:\rangle
     \end{cases} \\
     \langle\:\text{ID}\:\rangle \to \texttt{^[a-zA-Z][a-zA-Z0-9]*\$} \\
     \langle\:\text{Num}\:\rangle \to \texttt{[0-9]*} \\
-    \langle\:\text{ArithmeticExpr}\:\rangle \to \langle\:\text{ID}\:\rangle|\langle\:\text{Num}\:\rangle \: \langle\:\text{Op}\:\rangle \: \langle\:\text{ID}\:\rangle|\langle\:\text{Num}\:\rangle \\
     \langle\:\text{Op}\:\rangle \to
     \begin{cases}
-        + \\
-        - \\
         \times \\
-        \div
+        \div \\
+        + \\
+        -
     \end{cases}
 \end{gather}
 $$

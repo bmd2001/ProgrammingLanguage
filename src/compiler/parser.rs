@@ -1,4 +1,4 @@
-use crate::compiler::tokenizer::{Token, Operator};
+use crate::compiler::tokenizer::{Token};
 
 pub struct Parser {
     m_tokens: Vec<Token>, // Add lifetime annotation
@@ -44,13 +44,14 @@ impl Parser {
         let second_is_oparen = matches!(self.peek(Some(1)), Some(Token::OpenParen));
         if first_is_exit && second_is_oparen {
             self.advance(2, false);
-            let expr = self.parse_primary_expr().map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
+            let expr = self.parse_arithmetic_expr().map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
+            self.advance(1, true);
             let last_is_cparen = matches!(self.peek(None), Some(Token::CloseParen));
-            if last_is_cparen {
+            return if last_is_cparen {
                 self.advance(1, false);
-                return Ok(NodeExit { expr });
+                Ok(NodeExit { expr })
             } else {
-                return Err("Error: Final ')' is missing.".to_string());
+                Err("Error: Final ')' is missing.".to_string())
             }
         }
         Err("Invalid exit.".to_string())
@@ -64,11 +65,12 @@ impl Parser {
                 Token::Equals { .. },            // Second token: Equals
                 ] => {
                     self.advance(2, true);
-                    match self.parse_primary_expr() {
+                    match self.parse_arithmetic_expr() {
                         Ok(expr) => {
+                            self.advance(1,true);
                             Ok(NodeVariableAssignement {
                                 variable: Token::ID { name: name.clone(), span: *span },
-                                value: expr,  // The parsed value as a PrimaryExpr
+                                value: expr,  // The parsed value as a ArithmeticExpr
                             })
                         }
                         Err(e) => Err(e), // Handle the error if the last token is not a valid PrimaryExpr
@@ -82,61 +84,45 @@ impl Parser {
         Err("Not enough tokens for variable assignment.".to_string())
     }
 
-    fn parse_primary_expr(&mut self) -> Result<NodePrimaryExpr, String> {
-        match self.parse_arithmetic_expr(){
-            Ok(expr) => {
-                return Ok(NodePrimaryExpr::Arithmetic(
-                    expr
-                ))
-            }
-            Err(_) => {
-            }
-        }
-        if let Some(token) = self.peek(None).cloned() {
-            return match token {
-                Token::Number { .. } | Token::ID { .. } => {
-                    self.advance(1, false); // Consume the token
-                    Ok(NodePrimaryExpr::Base(
-                        token.clone()
-                    ))
-                }
-                _ => Err("Expected a Base Primary Expression (Number or ID).".to_string()),
-            }
-        }
-        Err("No tokens found for Primary Expression.".to_string())
-    }
-
     fn parse_arithmetic_expr(&mut self) -> Result<NodeArithmeticExpr, String> {
-        fn match_operand(token: &Token) -> Option<Token> {
+        fn match_operand(token: &Token) -> bool {
             match token {
-                Token::Number { value, span } => Some(Token::Number { value: value.clone(), span: *span }),
-                Token::ID { name, span } => Some(Token::ID { name: name.clone(), span: *span }),
-                _ => None,
+                Token::Number { .. } | Token::ID {..} => true,
+                _ => false,
             }
         }
-        
-        if let Some(range) = self.peek_range(3, true){
-            return match &range[..3] {
-                [
-                lhs,
-                Token::Operator(op),
-                rhs,
-                ] => {
-                    if let (Some(lhs_token), Some(rhs_token)) = (match_operand(lhs), match_operand(rhs)) {
-                        self.advance(3, true);
-                        return Ok(NodeArithmeticExpr {
-                            lhs: lhs_token,
-                            rhs: rhs_token,
-                            op: op.clone(),
-                        })
-                    } else {
-                        Err("Invalid Arithmetic Expression.".to_string())
-                    }
+        if let Some(range) = self.peek_range(4, true) {
+            let op_token = &range[1];
+            if let Token::Operator(..) = op_token{
+                if match_operand(&range[0]) && match_operand(&range[2]) {
+                    let lhs = self.parse_base_expr().map_err(|e| format!(" {e} "))?;
+                    self.advance(2, true);
+                    let rhs = self.parse_base_expr().map_err(|e| format!(" {e} "))?;
+                    return Ok(NodeArithmeticExpr::Operation(NodeArithmeticOperation{
+                        lhs,
+                        rhs,
+                        op: op_token.clone(),
+                    }))
                 }
-                _ => Err("Invalid Arithmetic Expression.".to_string())
+            }
+        } else if let Some(..) = self.peek(None) {
+            return match self.parse_base_expr() {
+                Ok(base) => Ok(NodeArithmeticExpr::Base(NodeArithmeticBase { num: base })),
+                Err(e) => Err(e)
             }
         }
         Err("No Arithmetic Expression found".to_string())
+    }
+
+    fn parse_base_expr(&mut self) -> Result<NodeBaseExpr, String> {
+        if let Some(token) = self.peek(None) {
+            return match token {
+                Token::ID { .. } => {Ok(NodeBaseExpr::ID(token.clone()))}
+                Token::Number { .. } => {Ok(NodeBaseExpr::Num(token.clone()))}
+                _ => {Err("The parsed token was not an Identifier or a Number".to_string())}
+            }
+        }
+        Err("No more tokens".to_string())
     }
     
     fn peek(& self, offset: Option<usize>) -> Option<&Token> {
@@ -213,24 +199,35 @@ pub(crate) enum NodeStmt {
 
 #[derive(Clone)]
 pub(crate) struct NodeExit {
-    pub(crate) expr: NodePrimaryExpr
+    pub(crate) expr: NodeArithmeticExpr
 }
 
 #[derive(Clone)]
 pub struct NodeVariableAssignement{
     pub(crate) variable: Token,
-    pub(crate) value: NodePrimaryExpr
+    pub(crate) value: NodeArithmeticExpr
+}
+#[derive(Clone)]
+pub(crate) enum NodeArithmeticExpr {
+    Base(NodeArithmeticBase),
+    Operation(NodeArithmeticOperation)
 }
 
 #[derive(Clone)]
-pub(crate) enum NodePrimaryExpr {
-    Base(Token),
-    Arithmetic(NodeArithmeticExpr)
+pub(crate) struct NodeArithmeticBase {
+    pub(crate) num: NodeBaseExpr
 }
 
 #[derive(Clone)]
-pub(crate) struct NodeArithmeticExpr {
-    pub(crate) lhs: Token,
-    pub(crate) rhs: Token,
-    pub(crate) op: Operator
+pub(crate) struct NodeArithmeticOperation {
+    pub(crate) lhs: NodeBaseExpr,
+    pub(crate) rhs: NodeBaseExpr,
+    pub(crate) op: Token
+}
+
+
+#[derive(Clone)]
+pub(crate) enum NodeBaseExpr {
+    Num(Token),
+    ID(Token)
 }

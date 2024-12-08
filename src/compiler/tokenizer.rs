@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub struct Tokenizer {
 
     m_tokens : Vec<Token>,
@@ -122,4 +124,43 @@ pub enum Operator {
     Minus,
     Multiplication,
     Division
+}
+
+// Implement Display for Operator
+impl fmt::Display for Operator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let symbol = match self {
+            Operator::Plus => "+",
+            Operator::Minus => "-",
+            Operator::Multiplication => "*",
+            Operator::Division => "/",
+        };
+        write!(f, "{}", symbol)
+    }
+}
+
+// Implement Display for Token
+impl fmt::Display for Token {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Token::ID { name, span } => write!(f, "ID({}, {:?})", name, span),
+            Token::Number { value, span } => write!(f, "Number({}, {:?})", value, span),
+            Token::Exit { .. } => write!(f, "exit()"),
+            Token::OpenParen => write!(f, "("),
+            Token::CloseParen => write!(f, ")"),
+            Token::Equals => write!(f, "="),
+            Token::Operator(op) => write!(f, "{}", op),
+            Token::WhiteSpace => write!(f, "\\s"),
+            Token::NotUsed => write!(f, "NotUsed"),
+        }
+    }
+}
+
+impl Operator {
+    pub fn precedence(self) -> usize {
+        match self {
+            Operator::Plus | Operator::Minus => {0}
+            Operator::Multiplication | Operator::Division => {1}
+        }
+    }
 }
