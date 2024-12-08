@@ -50,27 +50,26 @@ impl Generator {
         if let Token::ID {name, ..}  = &var.variable{
             self.m_output.push_str(&format!("\t; {name} \n"));
             self.generate_primary_expr(&var.value);
-            let stack_loc = self.m_id_names.len();
-            self.m_id_names.insert(name.clone(), stack_loc);
+            self.m_id_names.insert(name.clone(), self.m_stack_size-1);
         }
     }
     
     fn generate_primary_expr(&mut self, p_expr: &NodePrimaryExpr){
         match p_expr {
             NodePrimaryExpr::Base(token) => {
-                self.generate_base_primary_expr(token, false)
+                self.generate_base_primary_expr(token)
             }
             NodePrimaryExpr::Arithmetic(expr) => {
                 self.generate_arithmetic_expr(expr)
             }
         }
     }
-    
-    fn generate_base_primary_expr(&mut self, token: &Token, from_math: bool){
+
+    fn generate_base_primary_expr(&mut self, token: &Token){
         match token {
             Token::ID { name, .. } => {
                 if let Some(stack_loc) = self.m_id_names.get(name) {
-                    let offset = self.m_stack_size.checked_sub(*(stack_loc) + 1).expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
+                    let offset = self.m_stack_size.checked_sub(1 + *(stack_loc)).expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
                     self.m_output.push_str(&format!("\t; Recuperate {name}'s value from stack\n\tmov rax, [rsp + {}]\n", offset * 8)); // Assuming 8-byte stack slots
                     self.push("rax");
                 } else {
@@ -88,8 +87,8 @@ impl Generator {
         match expr.op{
             Operator::Plus => {
                 self.m_output.push_str("\t; Addition\n ");
-                self.generate_base_primary_expr(&expr.rhs, true);
-                self.generate_base_primary_expr(&expr.lhs, true);
+                self.generate_base_primary_expr(&expr.rhs);
+                self.generate_base_primary_expr(&expr.lhs);
                 self.pop("rax");
                 self.pop("rbx");
                 self.m_output.push_str("\tadd rax, rbx\n");
@@ -97,8 +96,8 @@ impl Generator {
             }
             Operator::Minus => {
                 self.m_output.push_str("\t; Subtraction\n ");
-                self.generate_base_primary_expr(&expr.rhs, true);
-                self.generate_base_primary_expr(&expr.lhs, true);
+                self.generate_base_primary_expr(&expr.rhs);
+                self.generate_base_primary_expr(&expr.lhs);
                 self.pop("rax");
                 self.pop("rbx");
                 self.m_output.push_str("\tsub rax, rbx\n");
@@ -106,8 +105,8 @@ impl Generator {
             }
             Operator::Multiplication => {
                 self.m_output.push_str("\t; Multiplication\n ");
-                self.generate_base_primary_expr(&expr.rhs, true);
-                self.generate_base_primary_expr(&expr.lhs, true);
+                self.generate_base_primary_expr(&expr.rhs);
+                self.generate_base_primary_expr(&expr.lhs);
                 self.pop("rax");
                 self.pop("rbx");
                 self.m_output.push_str("\tmul rbx\n");
@@ -115,8 +114,8 @@ impl Generator {
             }
             Operator::Division => {
                 self.m_output.push_str("\t; Division\n ");
-                self.generate_base_primary_expr(&expr.rhs, true);
-                self.generate_base_primary_expr(&expr.lhs, true);
+                self.generate_base_primary_expr(&expr.rhs);
+                self.generate_base_primary_expr(&expr.lhs);
                 self.pop("rax");
                 self.pop("rbx");
                 self.m_output.push_str("\tdiv rbx\n");
@@ -134,9 +133,9 @@ impl Generator {
         self.m_output.push_str(format!("\tpop {reg}\n").as_str());
         self.m_stack_size -= 1;
     }
-    
+
     fn comment_arithemtic_operation(self, expr: NodeArithmeticExpr){
-        
+
     }
-    
+
 }

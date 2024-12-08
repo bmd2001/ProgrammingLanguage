@@ -58,14 +58,13 @@ impl Parser {
     
     fn parse_variable_assignement(&mut self) -> Result<NodeVariableAssignement, String>{
         if let Some(tokens) = self.peek_range(3, true){
-            match &tokens[..2] {
+            return match &tokens[..2] {
                 [
-                    Token::ID { name, span },           // First token: Identifier
-                    Token::Equals { .. },            // Second token: Equals
+                Token::ID { name, span },           // First token: Identifier
+                Token::Equals { .. },            // Second token: Equals
                 ] => {
-                    
                     self.advance(2, true);
-                    return match self.parse_primary_expr() {
+                    match self.parse_primary_expr() {
                         Ok(expr) => {
                             Ok(NodeVariableAssignement {
                                 variable: Token::ID { name: name.clone(), span: *span },
@@ -76,7 +75,7 @@ impl Parser {
                     }
                 }
                 _ => {
-                    return Err("Invalid syntax for variable assignment. Expected: 'ID = Number'.".to_string());
+                    Err("Invalid syntax for variable assignment. Expected: 'ID = Number'.".to_string())
                 }
             }
         }
@@ -106,21 +105,33 @@ impl Parser {
         }
         Err("No tokens found for Primary Expression.".to_string())
     }
-    
+
     fn parse_arithmetic_expr(&mut self) -> Result<NodeArithmeticExpr, String> {
+        fn match_operand(token: &Token) -> Option<Token> {
+            match token {
+                Token::Number { value, span } => Some(Token::Number { value: value.clone(), span: *span }),
+                Token::ID { name, span } => Some(Token::ID { name: name.clone(), span: *span }),
+                _ => None,
+            }
+        }
+        
         if let Some(range) = self.peek_range(3, true){
             return match &range[..3] {
                 [
-                Token::Number { value, span },
+                lhs,
                 Token::Operator(op),
-                Token::Number { value: value1, span: span1 },
+                rhs,
                 ] => {
-                    self.advance(3, true);
-                    Ok(NodeArithmeticExpr {
-                        lhs: Token::Number { value: value.clone(), span: *span },
-                        rhs: Token::Number { value: value1.clone(), span: *span1 },
-                        op: op.clone(),
-                    })
+                    if let (Some(lhs_token), Some(rhs_token)) = (match_operand(lhs), match_operand(rhs)) {
+                        self.advance(3, true);
+                        return Ok(NodeArithmeticExpr {
+                            lhs: lhs_token,
+                            rhs: rhs_token,
+                            op: op.clone(),
+                        })
+                    } else {
+                        Err("Invalid Arithmetic Expression.".to_string())
+                    }
                 }
                 _ => Err("Invalid Arithmetic Expression.".to_string())
             }
@@ -174,7 +185,7 @@ impl Parser {
         else {
             let mut counter = 0;
             let mut offset = 0;
-    
+
             while self.m_index + offset < self.m_tokens.len() {
                 let token = &self.m_tokens[self.m_index + offset];
                 if counter < step && !matches!(token, Token::WhiteSpace){

@@ -22,7 +22,7 @@ $$
     \end{cases} \\
     \langle\:\text{ID}\:\rangle \to \texttt{^[a-zA-Z][a-zA-Z0-9]*\$} \\
     \langle\:\text{Num}\:\rangle \to \texttt{[0-9]*} \\
-    \langle\:\text{ArithmeticExpr}\:\rangle \to \langle\:\text{Num}\:\rangle \langle\:\text{Op}\:\rangle\langle\:\text{Num}\:\rangle \\
+    \langle\:\text{ArithmeticExpr}\:\rangle \to \langle\:\text{ID}\:\rangle|\langle\:\text{Num}\:\rangle \: \langle\:\text{Op}\:\rangle \: \langle\:\text{ID}\:\rangle|\langle\:\text{Num}\:\rangle \\
     \langle\:\text{Op}\:\rangle \to
     \begin{cases}
         + \\
