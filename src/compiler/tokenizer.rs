@@ -77,7 +77,7 @@ impl Tokenizer {
         // Check if the buffer contains only digits and the next character is not a digit
         let next_char = self.peek(input, Some(1)).unwrap_or(' ');
         if buf.chars().all(|c| c.is_digit(10)) && !next_char.is_digit(10) && !next_char.is_alphabetic(){
-            return Some(Token::Number {value : String::from(buf), span: (0, self.m_visited + 1 - buf.len()) })
+            return Some(Token::Number {value : String::from(buf), span: (self.m_line, self.m_visited + 1 - buf.len()) })
         }
         // Check if the first character is alphabetical and all others are alphanumerical, while also checking the next character is a space
         else if let Some(first_char) = buf.chars().next() {
