@@ -104,13 +104,22 @@ impl Generator {
                 self.m_output.push_str("\tsub rax, rbx\n");
                 self.push("rax");
             }
-            Operator::Multiply => {
+            Operator::Multiplication => {
                 self.m_output.push_str("\t; Multiplication\n ");
                 self.generate_base_primary_expr(&expr.rhs, true);
                 self.generate_base_primary_expr(&expr.lhs, true);
                 self.pop("rax");
                 self.pop("rbx");
                 self.m_output.push_str("\tmul rbx\n");
+                self.push("rax");
+            }
+            Operator::Division => {
+                self.m_output.push_str("\t; Division\n ");
+                self.generate_base_primary_expr(&expr.rhs, true);
+                self.generate_base_primary_expr(&expr.lhs, true);
+                self.pop("rax");
+                self.pop("rbx");
+                self.m_output.push_str("\tdiv rbx\n");
                 self.push("rax");
             }
         }

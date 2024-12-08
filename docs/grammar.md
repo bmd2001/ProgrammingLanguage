@@ -27,7 +27,8 @@ $$
     \begin{cases}
         + \\
         - \\
-        \times
+        \times \\
+        \div
     \end{cases}
 \end{gather}
 $$
