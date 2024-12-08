@@ -1,5 +1,3 @@
-use regex::Regex;
-
 pub struct Tokenizer {
 
     m_tokens : Vec<Token>,
@@ -59,9 +57,7 @@ impl Tokenizer {
 
     fn check_buf(&mut self, buf : &Vec<char>, input: &str) -> Option<Token> {
         let mut string_buf: String = buf.iter().collect();
-        let re = Regex::new(r" +").unwrap();
-        string_buf = re.replace_all(&*string_buf, " ").to_string();
-        //TODO Remove use of regex
+        string_buf = string_buf.split_whitespace().collect::<Vec<&str>>().join(" ");
         match string_buf.as_str() {
             "exit" => Some(Token::Exit {span : (self.m_line, self.m_visited - 3)}),
             "(" => Some(Token::OpenParen),
