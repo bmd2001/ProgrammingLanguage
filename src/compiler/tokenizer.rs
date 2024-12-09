@@ -37,11 +37,7 @@ impl Tokenizer {
             self.m_visited += 1;
             if token.is_some() {
                 buf.clear();
-                if !matches!(token, Some(Token::NotUsed)){
-                    self.m_tokens.push(token.unwrap());
-                } else {
-                    self.m_visited-=1;
-                }
+                self.m_tokens.push(token.unwrap());
             };
             peek = self.peek(input, None);
         }
@@ -63,7 +59,7 @@ impl Tokenizer {
             "\n" => {
                 self.m_line += 1;
                 self.m_visited = 0;
-                Some(Token::NotUsed)
+                Some(Token::NewLine)
             }
             _ => {
                 if let Some(token) = self.tokenize_primary_expr(string_buf.as_str(), input) {
@@ -115,7 +111,7 @@ pub enum Token {
     Equals,
     Operator(Operator),
     WhiteSpace,
-    NotUsed
+    NewLine
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -151,7 +147,7 @@ impl fmt::Display for Token {
             Token::Equals => write!(f, "="),
             Token::Operator(op) => write!(f, "{}", op),
             Token::WhiteSpace => write!(f, "\\s"),
-            Token::NotUsed => write!(f, "NotUsed"),
+            Token::NewLine => write!(f, "NewLine"),
         }
     }
 }

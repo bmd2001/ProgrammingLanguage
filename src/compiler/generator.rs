@@ -1,6 +1,6 @@
 use std::any::type_name;
 use std::collections::HashMap;
-use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignement, NodeArithmeticExpr, NodeArithmeticOperation};
+use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignement, NodeArithmeticExpr, NodeArithmeticOperation, NodeArithmeticBase};
 use crate::compiler::tokenizer::{Operator, Token};
 
 
@@ -54,7 +54,8 @@ impl Generator {
     fn generate_id(&mut self, var: &NodeVariableAssignement) {
         self.m_output.push_str("\t; VarAssignement\n");
         if let Token::ID {name, ..}  = &var.variable{
-            self.m_output.push_str(&format!("\t; {name} = "));
+            self.m_output.push_str(&format!("\t; {var}\n"));
+            dbg!(format!("\t; {var}\n"));
             self.generate_arithmetic_expr(&var.value);
             self.m_id_names.insert(name.clone(), self.m_stack_size-1);
         }
@@ -62,18 +63,15 @@ impl Generator {
     
     fn generate_arithmetic_expr(&mut self, expr: &NodeArithmeticExpr){
         match expr {
-            NodeArithmeticExpr::Base(base) => {self.generate_base_expr(&base.num, false)}
+            NodeArithmeticExpr::Base(base) => {self.generate_base_expr(&base.base)}
             NodeArithmeticExpr::Operation(operation) => {self.generate_arithmetic_op(operation)}
         }
     }
     
-    fn generate_base_expr(&mut self, p_expr: &NodeBaseExpr, from_math: bool){
+    fn generate_base_expr(&mut self, p_expr: &NodeBaseExpr){
         match p_expr {
             NodeBaseExpr::Num(token) => {
                 if let Token::Number { value, .. } = token{
-                    if !from_math {
-                        self.m_output.push_str(&format!("{value}\n"));
-                    }
                     self.m_output.push_str(&format!("\tmov rax, {value}\n"));
                     self.push("rax")
                 } else {
@@ -84,9 +82,6 @@ impl Generator {
                 if let Token::ID { name, .. } = token {
                     if let Some(stack_loc) = self.m_id_names.get(name) {
                         let offset = self.m_stack_size.checked_sub(1 + *(stack_loc)).expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
-                        if !from_math {
-                            self.m_output.push_str(&format!("{name}\n"));
-                        }
                         self.m_output.push_str(&format!("\t; Recuperate {name}'s value from stack\n\tmov rax, [rsp + {}]\n", offset * 8)); // Assuming 8-byte stack slots
                         self.push("rax");
                     } else {
@@ -100,58 +95,64 @@ impl Generator {
     }
 
     fn generate_arithmetic_op(&mut self, expr: &NodeArithmeticOperation) {
-        let mut lhs = expr.clone().lhs.clone();
-        let mut lhs_str= String::new();
-        match lhs{
-            NodeBaseExpr::Num(Token::Number {value, .. }) => {lhs_str = value}
-            NodeBaseExpr::ID(Token::ID {name, ..}) => {lhs_str = name}
-            _ => {}
+        let rhs = expr.clone().rhs.clone();
+        let mut rhs_base: Option<NodeBaseExpr> = None;
+        match *rhs {
+            NodeArithmeticExpr::Base(NodeArithmeticBase { base, .. }) => {
+                rhs_base = Some(base);
+            }
+            NodeArithmeticExpr::Operation(ref op_expr) => {
+                // Recursively generate code for the right-hand side if it's another operation
+                self.generate_arithmetic_op(op_expr);
+            }
         }
-        let mut rhs = expr.clone().rhs.clone();
-        let mut rhs_str= String::new();
-        match rhs{
-            NodeBaseExpr::Num(Token::Number {value, .. }) => {rhs_str = value}
-            NodeBaseExpr::ID(Token::ID {name, ..}) => {rhs_str = name}
-            _ => {}
-        }
+        
         match expr.clone().op{
             Token::Operator(op_type) => {
                 match op_type{
                     Operator::Plus => {
-                        self.m_output.push_str(&format!("{} {} {}\n", lhs_str, op_type, rhs_str));
                         self.m_output.push_str("\t; Addition\n ");
-                        self.generate_base_expr(&expr.rhs, true);
-                        self.generate_base_expr(&expr.lhs, true);
+                        if rhs_base.is_some() {
+                            let base = rhs_base.clone().unwrap();
+                            self.generate_base_expr(&base);
+                        }
+                        self.generate_base_expr(&expr.lhs);
                         self.pop("rax");
                         self.pop("rbx");
                         self.m_output.push_str("\tadd rax, rbx\n");
                         self.push("rax");
                     }
                     Operator::Minus => {
-                        self.m_output.push_str(&format!("{} {} {}\n", lhs_str, op_type, rhs_str));
                         self.m_output.push_str("\t; Subtraction\n ");
-                        self.generate_base_expr(&expr.rhs, true);
-                        self.generate_base_expr(&expr.lhs, true);
+                        if rhs_base.is_some() {
+                            let base = rhs_base.clone().unwrap();
+                            self.generate_base_expr(&base);
+                        }
+                        self.generate_base_expr(&expr.lhs);
                         self.pop("rax");
                         self.pop("rbx");
                         self.m_output.push_str("\tsub rax, rbx\n");
                         self.push("rax");
                     }
                     Operator::Multiplication => {
-                        self.m_output.push_str(&format!("{} {} {}\n", lhs_str, op_type, rhs_str));
                         self.m_output.push_str("\t; Multiplication\n ");
-                        self.generate_base_expr(&expr.rhs, true);
-                        self.generate_base_expr(&expr.lhs, true);
+                        if rhs_base.is_some() {
+                            let base = rhs_base.clone().unwrap();
+                            self.generate_base_expr(&base);
+                        }
+                        self.generate_base_expr(&expr.lhs);
                         self.pop("rax");
                         self.pop("rbx");
                         self.m_output.push_str("\tmul rbx\n");
                         self.push("rax");
                     }
                     Operator::Division => {
-                        self.m_output.push_str(&format!("{} {} {}\n", lhs_str, op_type, rhs_str));
                         self.m_output.push_str("\t; Division\n ");
-                        self.generate_base_expr(&expr.rhs, true);
-                        self.generate_base_expr(&expr.lhs, true);
+                        if rhs_base.is_some() {
+                            let base = rhs_base.clone().unwrap();
+                            self.generate_base_expr(&base);
+                        }
+                        self.generate_base_expr(&expr.lhs);
                         self.pop("rax");
                         self.pop("rbx");
                         self.m_output.push_str("\tdiv rbx\n");
@@ -173,10 +174,6 @@ impl Generator {
     fn pop(&mut self, reg: &str) {
         self.m_output.push_str(format!("\tpop {reg}\n").as_str());
         self.m_stack_size -= 1;
-    }
-
-    fn comment_arithemtic_operation(self, expr: NodeArithmeticExpr){
-
     }
 
 }
