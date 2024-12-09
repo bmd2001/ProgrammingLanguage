@@ -1,6 +1,7 @@
 use std::any::type_name;
 use std::collections::HashMap;
-use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignement, NodeArithmeticExpr, NodeArithmeticOperation, NodeArithmeticBase};
+use either::Either;
+use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignement, NodeArithmeticExpr, NodeArithmeticOperation};
 use crate::compiler::tokenizer::{Operator, Token};
 
 
@@ -63,7 +64,7 @@ impl Generator {
     
     fn generate_arithmetic_expr(&mut self, expr: &NodeArithmeticExpr){
         match expr {
-            NodeArithmeticExpr::Base(base) => {self.generate_base_expr(&base.base)}
+            NodeArithmeticExpr::Base(base) => {self.generate_base_expr(&base)}
             NodeArithmeticExpr::Operation(operation) => {self.generate_arithmetic_op(operation)}
         }
     }
@@ -95,67 +96,51 @@ impl Generator {
     }
 
     fn generate_arithmetic_op(&mut self, expr: &NodeArithmeticOperation) {
-        let rhs = expr.clone().rhs.clone();
-        let mut rhs_base: Option<NodeBaseExpr> = None;
-        match *rhs {
-            NodeArithmeticExpr::Base(NodeArithmeticBase { base, .. }) => {
-                rhs_base = Some(base);
-            }
-            NodeArithmeticExpr::Operation(ref op_expr) => {
-                // Recursively generate code for the right-hand side if it's another operation
-                self.generate_arithmetic_op(op_expr);
-            }
-        }
-        
         match expr.clone().op{
             Token::Operator(op_type) => {
                 match op_type{
                     Operator::Plus => {
-                        self.m_output.push_str("\t; Addition\n ");
-                        if rhs_base.is_some() {
-                            let base = rhs_base.clone().unwrap();
-                            self.generate_base_expr(&base);
+                        match expr.clone().lhs {
+                            Either::Left(b) => {self.generate_arithmetic_expr(&b); self.m_output.push_str("\t; Addition\n ");}
+                            Either::Right(base) => {self.m_output.push_str("\t; Addition\n "); self.generate_base_expr(&base);}
                         }
-                        self.generate_base_expr(&expr.lhs);
+                        self.generate_base_expr(&expr.rhs);
                         self.pop("rax");
                         self.pop("rbx");
                         self.m_output.push_str("\tadd rax, rbx\n");
                         self.push("rax");
                     }
                     Operator::Minus => {
-                        self.m_output.push_str("\t; Subtraction\n ");
-                        if rhs_base.is_some() {
-                            let base = rhs_base.clone().unwrap();
-                            self.generate_base_expr(&base);
+                        match expr.clone().lhs {
+                            Either::Left(b) => {self.generate_arithmetic_expr(&b); self.m_output.push_str("\t; Subtraction\n ");}
+                            Either::Right(base) => {self.m_output.push_str("\t; Subtraction\n "); self.generate_base_expr(&base);}
                         }
-                        self.generate_base_expr(&expr.lhs);
-                        self.pop("rax");
+                        self.generate_base_expr(&expr.rhs);
                         self.pop("rbx");
+                        self.pop("rax");
                         self.m_output.push_str("\tsub rax, rbx\n");
                         self.push("rax");
                     }
                     Operator::Multiplication => {
-                        self.m_output.push_str("\t; Multiplication\n ");
-                        if rhs_base.is_some() {
-                            let base = rhs_base.clone().unwrap();
-                            self.generate_base_expr(&base);
+                        match expr.clone().lhs {
+                            Either::Left(b) => {self.generate_arithmetic_expr(&b); self.m_output.push_str("\t; Multiplication\n ");}
+                            Either::Right(base) => {self.m_output.push_str("\t; Multiplication\n "); self.generate_base_expr(&base);}
                         }
-                        self.generate_base_expr(&expr.lhs);
+                        self.generate_base_expr(&expr.rhs);
                         self.pop("rax");
                         self.pop("rbx");
                         self.m_output.push_str("\tmul rbx\n");
                         self.push("rax");
                     }
                     Operator::Division => {
-                        self.m_output.push_str("\t; Division\n ");
-                        if rhs_base.is_some() {
-                            let base = rhs_base.clone().unwrap();
-                            self.generate_base_expr(&base);
+                        match expr.clone().lhs {
+                            Either::Left(b) => {self.generate_arithmetic_expr(&b);self.m_output.push_str("\t; Division\n ");}
+                            Either::Right(base) => {self.m_output.push_str("\t; Division\n "); self.generate_base_expr(&base);}
                         }
-                        self.generate_base_expr(&expr.lhs);
-                        self.pop("rax");
+                        self.generate_base_expr(&expr.rhs);
                         self.pop("rbx");
-                        self.m_output.push_str("\tdiv rbx\n");
+                        self.pop("rax");
+                        self.m_output.push_str("\txor rdx, rdx   ; Clear the remainder register\n\tdiv rbx\n");
                         self.push("rax");
                     }
                 }

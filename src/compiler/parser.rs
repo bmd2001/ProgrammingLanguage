@@ -1,4 +1,5 @@
 use std::fmt;
+use either::{Either, Right, Left};
 use crate::compiler::tokenizer::{Token};
 
 pub struct Parser {
@@ -49,11 +50,22 @@ impl Parser {
         if first_is_exit && second_is_oparen {
             self.advance(2, false);
             let expr = self.parse_arithmetic_expr().map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
-            self.advance(1, true);
             let last_is_cparen = matches!(self.peek(None), Some(Token::CloseParen));
             return if last_is_cparen {
                 self.advance(1, false);
-                Ok(NodeExit { expr })
+                Ok( match expr {
+                    Left(b) => {if let NodeArithmeticExpr::Operation(NodeArithmeticOperation { lhs, rhs, op }) = *b {
+                        NodeExit{ expr: NodeArithmeticExpr::Operation(NodeArithmeticOperation {
+                            lhs,
+                            rhs,
+                            op,
+                        })}
+                    } else {
+                        // Handle the unexpected case (optional)
+                        panic!("Expected a NodeArithmeticExpr::Operation, found something else.");
+                    }}
+                    Right(base) => {NodeExit{expr: NodeArithmeticExpr::Base(base)}}
+                })
             } else {
                 Err("Error: Final ')' is missing.".to_string())
             }
@@ -71,10 +83,24 @@ impl Parser {
                     self.advance(2, true);
                     match self.parse_arithmetic_expr() {
                         Ok(expr) => {
-                            self.advance(1,true);
                             Ok(NodeVariableAssignement {
                                 variable: Token::ID { name: name.clone(), span: *span },
-                                value: expr,  // The parsed value as a ArithmeticExpr
+                                value: {match expr{
+                                    Left(b) => {// Dereference the Box to access the NodeArithmeticExpr inside
+                                        if let NodeArithmeticExpr::Operation(NodeArithmeticOperation { lhs, rhs, op }) = *b {
+                                            NodeArithmeticExpr::Operation(NodeArithmeticOperation {
+                                                lhs,
+                                                rhs,
+                                                op,
+                                            })
+                                        } else {
+                                            // Handle the unexpected case (optional)
+                                            panic!("Expected a NodeArithmeticExpr::Operation, found something else.");
+                                        }
+                                    }
+                                    Right(base) => {NodeArithmeticExpr::Base(base)}
+                                }
+                                },  // The parsed value as a ArithmeticExpr
                             })
                         }
                         Err(e) => Err(e), // Handle the error if the last token is not a valid PrimaryExpr
@@ -88,45 +114,25 @@ impl Parser {
         Err("Not enough tokens for variable assignment.".to_string())
     }
 
-    fn parse_arithmetic_expr(&mut self) -> Result<NodeArithmeticExpr, String> {
-        fn match_operand(token: &Token) -> bool {
-            match token {
-                Token::Number { .. } | Token::ID {..} => true,
-                _ => false,
-            }
-        }
-        // Parse the left-hand side (lhs) operand
-        let lhs = if let Some(token) = self.peek(None) {
-            if match_operand(token) {
-                self.parse_base_expr().map(|base| base)?
+    fn parse_arithmetic_expr(&mut self) -> Result<Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, String> {
+        let mut a: Either<Box<NodeArithmeticExpr>, NodeBaseExpr> = Right(self.parse_base_expr().map_err(|e| format!("Invalid arithmetic expression: {}", e))?);
+        self.advance(1, true);
+        loop {
+            let op = if let Some(Token::Operator(op)) = self.peek(None) {
+                op.clone() // Clone the operator to avoid borrowing `self`.
             } else {
-                return Err("Expected a base expression for the left-hand side".to_string());
-            }
-        } else {
-            return Err("No tokens available for parsing".to_string());
-        };
-
-        // Parse the operator and right-hand side (rhs)
-        if let Some(range) = self.peek_range(3, true) {
-            let op_token = &range[1];
-            let rhs_token = &range[2];
-
-            // Ensure the first token is an operator and the second is a valid operand
-            if let Token::Operator(..) = op_token {
-                return if match_operand(rhs_token) {
-                    self.advance(2, true); // Consume the operator and operand
-                    let rhs = self.parse_arithmetic_expr()?; // Recursively parse the RHS
-                    Ok(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                        lhs,
-                        rhs: Box::new(rhs),
-                        op: op_token.clone(),
-                    }))
-                } else {
-                    Err("Expected a valid right-hand operand".to_string())
-                }
-            }
+                break; // Exit the loop if no operator is found.
+            };
+            self.advance(1, true);
+            let b = self.parse_base_expr().map_err(|e| format!("Invalid arithmetic expression: {}", e))?;
+            self.advance(1, true);
+            a = Left(Box::new(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
+                lhs: a,
+                rhs: b,
+                op: Token::Operator(op),
+            })));
         }
-        Ok(NodeArithmeticExpr::Base(NodeArithmeticBase{ base: self.parse_base_expr().map_err(|e| format!("{e}"))? }))
+        Ok(a)
     }
 
     fn parse_base_expr(&mut self) -> Result<NodeBaseExpr, String> {
@@ -227,19 +233,14 @@ pub struct NodeVariableAssignement{
 }
 #[derive(Clone)]
 pub(crate) enum NodeArithmeticExpr {
-    Base(NodeArithmeticBase),
+    Base(NodeBaseExpr),
     Operation(NodeArithmeticOperation)
 }
 
 #[derive(Clone)]
-pub(crate) struct NodeArithmeticBase {
-    pub(crate) base: NodeBaseExpr
-}
-
-#[derive(Clone)]
 pub(crate) struct NodeArithmeticOperation {
-    pub(crate) lhs: NodeBaseExpr,
-    pub(crate) rhs: Box<NodeArithmeticExpr>,
+    pub(crate) lhs: Either<Box<NodeArithmeticExpr>, NodeBaseExpr>,
+    pub(crate) rhs: NodeBaseExpr,
     pub(crate) op: Token
 }
 
@@ -270,12 +271,6 @@ impl fmt::Display for NodeArithmeticExpr {
     }
 }
 
-impl fmt::Display for NodeArithmeticBase {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.base)
-    }
-}
-
 impl fmt::Display for NodeArithmeticOperation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Format the operation as `lhs op rhs`
@@ -284,7 +279,7 @@ impl fmt::Display for NodeArithmeticOperation {
             "{} {} {}",
             self.lhs,           // Left-hand side
             self.op,            // Operator
-            *self.rhs           // Dereference Box for right-hand side
+            self.rhs           // Dereference Box for right-hand side
         )
     }
 }
