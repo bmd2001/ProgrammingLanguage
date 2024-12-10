@@ -1,6 +1,7 @@
+use std::collections::VecDeque;
 use std::fmt;
 use either::{Either, Right, Left};
-use crate::compiler::tokenizer::{Token};
+use crate::compiler::tokenizer::{Token, Operator};
 
 pub struct Parser {
     m_tokens: Vec<Token>, // Add lifetime annotation
@@ -14,7 +15,7 @@ impl Parser {
 
     pub fn parse(&mut self) -> Result<NodeProgram, String>{
         let mut prog = NodeProgram { stmts: Vec::new() };
-        while let Some(..) = self.peek(None) {
+        while let Some(..) = self.peek(0) {
             match self.parse_stmt() {
                 Ok(stmt) => {
                     prog.stmts.push(stmt);
@@ -45,12 +46,12 @@ impl Parser {
     }
     
     fn parse_exit(&mut self) -> Result<NodeExit, String>{
-        let first_is_exit = matches!(self.peek(None), Some(Token::Exit { span: _ }));
-        let second_is_oparen = matches!(self.peek(Some(1)), Some(Token::OpenParen));
+        let first_is_exit = matches!(self.peek(0), Some(Token::Exit { span: _ }));
+        let second_is_oparen = matches!(self.peek(1), Some(Token::OpenParen));
         if first_is_exit && second_is_oparen {
             self.advance(2, false);
-            let expr = self.parse_arithmetic_expr(0).map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
-            let last_is_cparen = matches!(self.peek(None), Some(Token::CloseParen));
+            let expr = self.parse_arithmetic_expr().map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
+            let last_is_cparen = matches!(self.peek(0), Some(Token::CloseParen));
             return if last_is_cparen {
                 self.advance(1, false);
                 Ok( match expr {
@@ -81,7 +82,7 @@ impl Parser {
                 Token::Equals { .. },            // Second token: Equals
                 ] => {
                     self.advance(2, true);
-                    match self.parse_arithmetic_expr(0) {
+                    match self.parse_arithmetic_expr() {
                         Ok(expr) => {
                             Ok(NodeVariableAssignement {
                                 variable: Token::ID { name: name.clone(), span: *span },
@@ -114,81 +115,95 @@ impl Parser {
         Err("Not enough tokens for variable assignment.".to_string())
     }
 
-    fn parse_arithmetic_expr(&mut self, min_prec: usize) -> Result<Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, String> {
-        let mut a: Either<Box<NodeArithmeticExpr>, NodeBaseExpr> = Right(self.parse_base_expr().map_err(|e| format!("Invalid arithmetic expression: {}", e))?);
-        self.advance(1, true);
-        loop {
-            let mut precedence = 0;
-            let op = if let Some(Token::Operator(op)) = self.peek(None) {
-                precedence = op.clone().precedence();
-                if precedence < min_prec {
-                    break; // Stop parsing if the operator has lower precedence.
-                }
-                op.clone() // Clone the operator to avoid borrowing `self`.
-            } else {
-                break; // Exit the loop if no operator is found.
-            };
-            self.advance(1, true);
-            let b = self.parse_arithmetic_expr(precedence+1).map_err(|e| format!("Invalid arithmetic expression: {}", e))?;
-            match b {
-                Left(b) => {
-                    match a.clone() {
-                        Left(prev_a) => {a = self.insert_node(prev_a, b).map_err(|e| format!("Recursive algorithm failed: {}", e))?}
-                        Right(prev_a) => {a = Left(Box::new(NodeArithmeticExpr::Operation(NodeArithmeticOperation {lhs: Left(b), rhs: prev_a, op: Token::Operator(op.clone())})))}
+    fn parse_arithmetic_expr(&mut self) -> Result<Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, String> {
+        let polish = self.create_reverse_polish_expr().map_err(|e| format!("Failed to create reverse PolishExpr: {}", e))?;
+        let mut expr_stack: Vec<NodeArithmeticExpr> = Vec::new();
+        for token in polish{
+            dbg!(token.clone());
+            match token {
+                Token::ID { .. } => {
+                    expr_stack.push(NodeArithmeticExpr::Base(NodeBaseExpr::ID(token.clone())));
+                },
+                Token::Number { .. } => {
+                    expr_stack.push(NodeArithmeticExpr::Base(NodeBaseExpr::Num(token.clone())));
+                },
+                Token::Operator(op) => {
+                    let rhs = expr_stack.pop().ok_or("Insufficient operands")?;
+                    let lhs = expr_stack.pop().ok_or("Insufficient operands")?;
+                    if let NodeArithmeticExpr::Base(rhs_base) = rhs{
+                        expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation{
+                            lhs: Left(Box::new(lhs)),
+                            rhs: rhs_base,
+                            op: Token::Operator(op),
+                        }))
+                    } else if  let NodeArithmeticExpr::Base(lhs_base) = lhs{
+                        expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation{
+                            lhs: Left(Box::new(rhs)),
+                            rhs: lhs_base,
+                            op: Token::Operator(op),
+                        }))
+                    }
+                    else {
+                        return Err("Parsing went wrong.".to_string())
                     }
                 }
-                Right(base) => { a = Left(Box::new(NodeArithmeticExpr::Operation(NodeArithmeticOperation{lhs: a, rhs: base, op: Token::Operator(op.clone())})))}
-            };
-        }
-        Ok(a)
-    }
-    
-    fn insert_node(&mut self, a : Box<NodeArithmeticExpr>, b: Box<NodeArithmeticExpr>) -> Result<Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, String>{
-        let mut op = match *a {
-            NodeArithmeticExpr::Operation(ref op) => op.clone(),
-            _ => return Err("Invalid Node: Expected an Operation".to_string()),
-        };
-
-        // Traverse left-hand side to find the left-most operation
-        while let Left(ref l) = op.lhs {
-            if let NodeArithmeticExpr::Operation(ref nested_op) = **l {
-                op = nested_op.clone();
-            } else {
-                return Err("Invalid Node: Expected a nested Operation".to_string());
+                _ => { Err(format!("Unexpected token in arithmetic expression."))?; }
             }
         }
-
-        // Extract base `lhs` and operator
-        let operator = op.op.clone();
-        let lhs = match op.lhs {
-            Right(base) => base,
-            _ => return Err("Invalid Node: Expected a base expression".to_string()),
-        };
-        op.lhs = Left(Box::new(NodeArithmeticExpr::Operation(NodeArithmeticOperation{
-            lhs: Left(b),
-            rhs: lhs,
-            op: operator,
-        })));
-        Ok(Left(a))
-    }
-
-    fn parse_base_expr(&mut self) -> Result<NodeBaseExpr, String> {
-        if let Some(token) = self.peek(None) {
-            return match token {
-                Token::ID { .. } => {Ok(NodeBaseExpr::ID(token.clone()))}
-                Token::Number { .. } => {Ok(NodeBaseExpr::Num(token.clone()))}
-                _ => {Err("The parsed token was not an Identifier or a Number".to_string())}
-            }
+        
+        match expr_stack.pop().ok_or("Insufficient operands")?{
+            NodeArithmeticExpr::Base(base) => {Ok(Right(base))}
+            NodeArithmeticExpr::Operation(op) => {Ok(Left(Box::new(NodeArithmeticExpr::Operation(op))))}
         }
-        Err("No more tokens".to_string())
+        
     }
     
-    fn peek(& self, offset: Option<usize>) -> Option<&Token> {
-        let off = offset.unwrap_or(0);
-        if self.m_index + off >= self.m_tokens.len() {
+    fn create_reverse_polish_expr(&mut self) -> Result<VecDeque<Token>, String>{
+        let mut stack: Vec<Operator> = Vec::new();
+        let mut polish: VecDeque<Token> = VecDeque::new();
+        while let Some(token) = self.peek(0) {
+            match token{
+                Token::ID { .. } | Token::Number { .. } => {
+                    polish.push_back(token.clone());
+                }
+                Token::OpenParen => {}
+                Token::CloseParen => {break;}
+                Token::Operator(op) => {
+                    while let Some(operator) = stack.pop() {
+                        if operator.precedence() <= op.clone().precedence(){
+                            stack.push(operator);
+                            break;
+                        }
+                        polish.push_back(Token::Operator(operator));
+                    }
+                    stack.push(op.clone());
+                },
+                Token::NewLine => {
+                    break;
+                }
+                _ => Err(format!("Unexpected token in arithmetic expression."))?,
+            }
+            self.advance(1, true);
+        }
+        while let Some(i) = stack.pop(){
+            polish.push_back(Token::Operator(i));
+        }
+        Ok(polish)
+    }
+
+    fn parse_base_expr(&mut self, token: Token) -> Result<NodeBaseExpr, String> {
+        match token {
+            Token::ID { .. } => {Ok(NodeBaseExpr::ID(token.clone()))}
+            Token::Number { .. } => {Ok(NodeBaseExpr::Num(token.clone()))}
+            _ => {Err("The parsed token was not an Identifier or a Number".to_string())}
+        }
+    }
+    
+    fn peek(& self, offset: usize) -> Option<&Token> {
+        if self.m_index + offset >= self.m_tokens.len() {
             return None;
         }
-        Some(&self.m_tokens[self.m_index + off])
+        Some(&self.m_tokens[self.m_index + offset])
     }
 
     fn peek_range(& self, count: usize, avoid_space: bool) -> Option<Vec<Token>> {
@@ -218,7 +233,7 @@ impl Parser {
     fn expect_token(&mut self, token_type: &Token, avoid_space: bool) -> bool {
         if avoid_space {
         }
-        if let Some(token) = self.peek(None){
+        if let Some(token) = self.peek(0){
             return matches!(token_type, token);
         }
         false
