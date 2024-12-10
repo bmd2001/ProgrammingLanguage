@@ -49,7 +49,7 @@ impl Parser {
         let second_is_oparen = matches!(self.peek(Some(1)), Some(Token::OpenParen));
         if first_is_exit && second_is_oparen {
             self.advance(2, false);
-            let expr = self.parse_arithmetic_expr().map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
+            let expr = self.parse_arithmetic_expr(0).map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
             let last_is_cparen = matches!(self.peek(None), Some(Token::CloseParen));
             return if last_is_cparen {
                 self.advance(1, false);
@@ -81,7 +81,7 @@ impl Parser {
                 Token::Equals { .. },            // Second token: Equals
                 ] => {
                     self.advance(2, true);
-                    match self.parse_arithmetic_expr() {
+                    match self.parse_arithmetic_expr(0) {
                         Ok(expr) => {
                             Ok(NodeVariableAssignement {
                                 variable: Token::ID { name: name.clone(), span: *span },
@@ -114,25 +114,62 @@ impl Parser {
         Err("Not enough tokens for variable assignment.".to_string())
     }
 
-    fn parse_arithmetic_expr(&mut self) -> Result<Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, String> {
+    fn parse_arithmetic_expr(&mut self, min_prec: usize) -> Result<Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, String> {
         let mut a: Either<Box<NodeArithmeticExpr>, NodeBaseExpr> = Right(self.parse_base_expr().map_err(|e| format!("Invalid arithmetic expression: {}", e))?);
         self.advance(1, true);
         loop {
+            let mut precedence = 0;
             let op = if let Some(Token::Operator(op)) = self.peek(None) {
+                precedence = op.clone().precedence();
+                if precedence < min_prec {
+                    break; // Stop parsing if the operator has lower precedence.
+                }
                 op.clone() // Clone the operator to avoid borrowing `self`.
             } else {
                 break; // Exit the loop if no operator is found.
             };
             self.advance(1, true);
-            let b = self.parse_base_expr().map_err(|e| format!("Invalid arithmetic expression: {}", e))?;
-            self.advance(1, true);
-            a = Left(Box::new(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                lhs: a,
-                rhs: b,
-                op: Token::Operator(op),
-            })));
+            let b = self.parse_arithmetic_expr(precedence+1).map_err(|e| format!("Invalid arithmetic expression: {}", e))?;
+            match b {
+                Left(b) => {
+                    match a.clone() {
+                        Left(prev_a) => {a = self.insert_node(prev_a, b).map_err(|e| format!("Recursive algorithm failed: {}", e))?}
+                        Right(prev_a) => {a = Left(Box::new(NodeArithmeticExpr::Operation(NodeArithmeticOperation {lhs: Left(b), rhs: prev_a, op: Token::Operator(op.clone())})))}
+                    }
+                }
+                Right(base) => { a = Left(Box::new(NodeArithmeticExpr::Operation(NodeArithmeticOperation{lhs: a, rhs: base, op: Token::Operator(op.clone())})))}
+            };
         }
         Ok(a)
+    }
+    
+    fn insert_node(&mut self, a : Box<NodeArithmeticExpr>, b: Box<NodeArithmeticExpr>) -> Result<Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, String>{
+        let mut op = match *a {
+            NodeArithmeticExpr::Operation(ref op) => op.clone(),
+            _ => return Err("Invalid Node: Expected an Operation".to_string()),
+        };
+
+        // Traverse left-hand side to find the left-most operation
+        while let Left(ref l) = op.lhs {
+            if let NodeArithmeticExpr::Operation(ref nested_op) = **l {
+                op = nested_op.clone();
+            } else {
+                return Err("Invalid Node: Expected a nested Operation".to_string());
+            }
+        }
+
+        // Extract base `lhs` and operator
+        let operator = op.op.clone();
+        let lhs = match op.lhs {
+            Right(base) => base,
+            _ => return Err("Invalid Node: Expected a base expression".to_string()),
+        };
+        op.lhs = Left(Box::new(NodeArithmeticExpr::Operation(NodeArithmeticOperation{
+            lhs: Left(b),
+            rhs: lhs,
+            op: operator,
+        })));
+        Ok(Left(a))
     }
 
     fn parse_base_expr(&mut self) -> Result<NodeBaseExpr, String> {
