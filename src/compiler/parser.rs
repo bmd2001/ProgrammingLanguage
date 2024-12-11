@@ -31,13 +31,17 @@ impl Parser {
     fn parse_stmt(&mut self) -> Result<NodeStmt, String> {
         match self.parse_exit() {
             Ok(exit_node) => Ok(NodeStmt::Exit(exit_node)),
-            Err(exit_err) => {
+            Err(exit_err) if exit_err != "exit is not present" => {
+                // Return an error if parse_exit failed with a critical error
+                Err(format!("Failed to parse Exit statement:\n- Exit Error: {exit_err}"))
+            },
+            _ => {
                 match self.parse_variable_assignement() {
                     Ok(var) => Ok(NodeStmt::ID(var)),
                     Err(var_err) => {
+                        // Return an error if parse_variable_assignement fails
                         Err(format!(
-                            "Failed to parse statement:\n- Exit Error: {}\n- Variable Assignment Error: {}",
-                            exit_err, var_err
+                            "Failed to parse Variable Assignment statement:\n- Variable Assignment Error: {var_err}"
                         ))
                     }
                 }
@@ -47,8 +51,11 @@ impl Parser {
     
     fn parse_exit(&mut self) -> Result<NodeExit, String>{
         let first_is_exit = matches!(self.peek(0), Some(Token::Exit { span: _ }));
+        if !first_is_exit {
+            return Err("exit is not present".to_string())
+        }
         let second_is_oparen = matches!(self.peek(1), Some(Token::OpenParen));
-        if first_is_exit && second_is_oparen {
+        if second_is_oparen {
             self.advance(2, false);
             let expr = self.parse_arithmetic_expr().map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
             let last_is_cparen = matches!(self.peek(0), Some(Token::CloseParen));
@@ -71,21 +78,21 @@ impl Parser {
                 Err("Error: Final ')' is missing.".to_string())
             }
         }
-        Err("Invalid exit.".to_string())
+        Err("Error: Initial '(' is missing".to_string())
     }
     
     fn parse_variable_assignement(&mut self) -> Result<NodeVariableAssignement, String>{
         if let Some(tokens) = self.peek_range(3, true){
             return match &tokens[..2] {
                 [
-                Token::ID { name, span },           // First token: Identifier
+                ref id @ Token::ID { .. },           // First token: Identifier
                 Token::Equals { .. },            // Second token: Equals
                 ] => {
                     self.advance(2, true);
                     match self.parse_arithmetic_expr() {
                         Ok(expr) => {
                             Ok(NodeVariableAssignement {
-                                variable: Token::ID { name: name.clone(), span: *span },
+                                variable: id.clone(),
                                 value: {match expr{
                                     Left(b) => {// Dereference the Box to access the NodeArithmeticExpr inside
                                         if let NodeArithmeticExpr::Operation(NodeArithmeticOperation { lhs, rhs, op }) = *b {
@@ -147,7 +154,7 @@ impl Parser {
                         return Err("Parsing went wrong.".to_string())
                     }
                 }
-                _ => { Err(format!("Unexpected token in arithmetic expression."))?; }
+                _ => { Err(format!("Unexpected token {token} in arithmetic expression."))?; }
             }
         }
         
@@ -181,7 +188,7 @@ impl Parser {
                 Token::NewLine => {
                     break;
                 }
-                _ => Err(format!("Unexpected token in arithmetic expression."))?,
+                _ => Err(format!("Unexpected token {token} in arithmetic expression."))?,
             }
             self.advance(1, true);
         }

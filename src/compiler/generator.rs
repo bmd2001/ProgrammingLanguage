@@ -46,6 +46,7 @@ impl Generator {
     
     fn generate_exit(&mut self, exit: &NodeExit){
         self.m_output.push_str("\t; Exit call \n");
+        self.m_output.push_str(&format!("\t; Exit Code = {}\n", exit.expr));
         self.generate_arithmetic_expr(&exit.expr);
         self.m_output.push_str("\tmov rax, 0x2000001\n");
         self.pop("rdi");

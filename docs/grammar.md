@@ -10,8 +10,8 @@ $$
     \end{cases}\\
     \langle\:\text{Stmt}\:\rangle \to 
     \begin{cases}
-        \langle\:\text{ID}\:\rangle = \langle\:\text{ArithmeticExpr}\:\rangle \\
-        \text{exit}( \langle\:\text{ArithmeticExpr}\:\rangle)
+        \text{exit}( \langle\:\text{ArithmeticExpr}\:\rangle) \\
+        \langle\:\text{ID}\:\rangle = \langle\:\text{ArithmeticExpr}\:\rangle
     \end{cases} \\
     \langle\:\text{ArithmeticExpr}\:\rangle \to \langle\:\text{BaseExpr}\:\rangle\{\langle\:\text{Op}\:\rangle\langle\:\text{BaseExpr}\:\rangle\}^* \\
     \langle\:\text{BaseExpr}\:\rangle \to 
