@@ -173,11 +173,24 @@ impl Parser {
                 Token::ID { .. } | Token::Number { .. } => {
                     polish.push_back(token.clone());
                 }
-                Token::OpenParen => {}
-                Token::CloseParen => {break;}
+                Token::OpenParen => {
+                    stack.push(Operator::OpenParenthesis)
+                }
+                Token::CloseParen => {
+                    if self.peek(1).is_some() && !matches!(self.peek(1), Some(Token::NewLine)) {
+                        while !matches!(stack.last(), Some(Operator::OpenParenthesis)) {
+                            if stack.is_empty() {
+                                Err("Missmatched Parenthesis: ( is missing".to_string())?
+                            }
+                            let op = stack.pop().unwrap();
+                            polish.push_back(Token::Operator(op))
+                        }
+                        stack.pop();
+                    } else {break;}
+                }
                 Token::Operator(op) => {
                     while let Some(operator) = stack.pop() {
-                        if operator.precedence() <= op.clone().precedence(){
+                        if matches!(operator, Operator::OpenParenthesis) || operator.precedence() <= op.clone().precedence(){
                             stack.push(operator);
                             break;
                         }
@@ -193,6 +206,7 @@ impl Parser {
             self.advance(1, true);
         }
         while let Some(i) = stack.pop(){
+            if matches!(i, Operator::OpenParenthesis){Err("Missmatched Parenthesis: ) is missing")?}
             polish.push_back(Token::Operator(i));
         }
         Ok(polish)

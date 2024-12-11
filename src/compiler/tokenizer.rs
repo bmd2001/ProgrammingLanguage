@@ -119,7 +119,9 @@ pub enum Operator {
     Plus,
     Minus,
     Multiplication,
-    Division
+    Division,
+    OpenParenthesis,
+    ClosedParenthesis,
 }
 
 // Implement Display for Operator
@@ -130,6 +132,8 @@ impl fmt::Display for Operator {
             Operator::Minus => "-",
             Operator::Multiplication => "*",
             Operator::Division => "/",
+            Operator::OpenParenthesis => "(",
+            Operator::ClosedParenthesis => ")"
         };
         write!(f, "{}", symbol)
     }
@@ -157,6 +161,7 @@ impl Operator {
         match self {
             Operator::Plus | Operator::Minus => {0}
             Operator::Multiplication | Operator::Division => {1}
+            Operator::OpenParenthesis | Operator::ClosedParenthesis => {2}
         }
     }
 }

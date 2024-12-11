@@ -144,6 +144,7 @@ impl Generator {
                         self.m_output.push_str("\txor rdx, rdx   ; Clear the remainder register\n\tdiv rbx\n");
                         self.push("rax");
                     }
+                    _ => {}
                 }
             }
             _ => {
