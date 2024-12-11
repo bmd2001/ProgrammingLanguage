@@ -144,6 +144,17 @@ impl Generator {
                         self.m_output.push_str("\txor rdx, rdx   ; Clear the remainder register\n\tdiv rbx\n");
                         self.push("rax");
                     }
+                    Operator::Modulus => {
+                        match expr.clone().lhs {
+                            Either::Left(b) => {self.generate_arithmetic_expr(&b);self.m_output.push_str("\t; Modulus\n ");}
+                            Either::Right(base) => {self.m_output.push_str("\t; Modulus\n "); self.generate_base_expr(&base);}
+                        }
+                        self.generate_base_expr(&expr.rhs);
+                        self.pop("rbx");
+                        self.pop("rax");
+                        self.m_output.push_str("\txor rdx, rdx   ; Clear the remainder register\n\tdiv rbx\n");
+                        self.push("rdx");
+                    }
                     _ => {}
                 }
             }

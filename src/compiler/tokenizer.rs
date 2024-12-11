@@ -56,6 +56,7 @@ impl Tokenizer {
             "-" => Some(Token::Operator(Operator::Minus)),
             "*" => Some(Token::Operator(Operator::Multiplication)),
             "//" => Some(Token::Operator(Operator::Division)),
+            "%" => Some(Token::Operator(Operator::Modulus)),
             "\n" => {
                 self.m_line += 1;
                 self.m_visited = 0;
@@ -120,6 +121,7 @@ pub enum Operator {
     Minus,
     Multiplication,
     Division,
+    Modulus,
     OpenParenthesis,
     ClosedParenthesis,
 }
@@ -133,7 +135,8 @@ impl fmt::Display for Operator {
             Operator::Multiplication => "*",
             Operator::Division => "/",
             Operator::OpenParenthesis => "(",
-            Operator::ClosedParenthesis => ")"
+            Operator::ClosedParenthesis => ")",
+            Operator::Modulus => "%"
         };
         write!(f, "{}", symbol)
     }
@@ -160,7 +163,7 @@ impl Operator {
     pub fn precedence(self) -> usize {
         match self {
             Operator::Plus | Operator::Minus => {0}
-            Operator::Multiplication | Operator::Division => {1}
+            Operator::Multiplication | Operator::Division | Operator::Modulus => {1}
             Operator::OpenParenthesis | Operator::ClosedParenthesis => {2}
         }
     }

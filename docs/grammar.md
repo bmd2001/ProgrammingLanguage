@@ -30,7 +30,8 @@ $$
         \times \\
         \div \\
         + \\
-        -
+        - \\
+        \%
     \end{cases}
 \end{gather}
 $$
