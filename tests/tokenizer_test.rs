@@ -78,7 +78,7 @@ fn test_multiline_input() {
 fn test_wrong_input() {
     let mut tokenizer = TOKENIZER.lock().unwrap();
     tokenizer.tokenize("1x = 0");
-    assert!(tokenizer.get_tokens().is_empty());
+    assert_eq!(tokenizer.get_tokens(), vec!(Token::Err));
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn test_operators(){
         Token::CloseParen
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
-    
+
     tokenizer.tokenize("*** * ** ** *");
     let expected_token = vec!(
         Token::Operator(Operator::Exponent),

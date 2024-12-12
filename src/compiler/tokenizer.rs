@@ -43,6 +43,9 @@ impl Tokenizer {
             };
             peek = self.peek(input, 0);
         }
+        if !buf.is_empty(){
+            self.m_tokens.push(Token::Err);
+        }
         dbg!(self.m_tokens.len());
     }
 
@@ -114,7 +117,8 @@ pub enum Token {
     Equals,
     Operator(Operator),
     WhiteSpace,
-    NewLine
+    NewLine,
+    Err
 }
 
 #[derive(Clone, Debug, PartialEq, Copy)]
@@ -160,6 +164,7 @@ impl fmt::Display for Token {
             Token::Operator(op) => write!(f, "{}", op),
             Token::WhiteSpace => write!(f, "\\s"),
             Token::NewLine => write!(f, "NewLine"),
+            _ => {write!(f, "err")}
         }
     }
 }

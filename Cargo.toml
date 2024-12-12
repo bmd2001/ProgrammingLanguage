@@ -10,3 +10,7 @@ either = "1.13.0"
 [[test]]
 name = "tokenizer_tests"
 path = "tests/tokenizer_test.rs"
+
+[[test]]
+name = "parser_tests"
+path = "tests/parser_test.rs"

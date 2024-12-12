@@ -15,7 +15,10 @@ impl Parser {
 
     pub fn parse(&mut self) -> Result<NodeProgram, String>{
         let mut prog = NodeProgram { stmts: Vec::new() };
-        while let Some(..) = self.peek(0) {
+        while let Some(token) = self.peek(0) {
+            if *token == Token::Err{
+                return Err("An error was present when parsing".to_string());
+            }
             match self.parse_stmt() {
                 Ok(stmt) => {
                     prog.stmts.push(stmt);
@@ -139,7 +142,7 @@ impl Parser {
                     let lhs = expr_stack.pop().ok_or("Insufficient operands")?;
 
                     // Helper function to construct the operation
-                    let create_operation = |lhs: NodeArithmeticExpr, rhs: NodeArithmeticExpr, op: Operator| {
+                    let create_operation = |lhs: NodeArithmeticExpr, rhs: NodeArithmeticExpr| {
                         
                         let lhs_node = match lhs {
                             NodeArithmeticExpr::Base(base) => Right(base),
@@ -156,7 +159,7 @@ impl Parser {
                         })
                     };
 
-                    let operation_node = create_operation(lhs, rhs, op.clone());
+                    let operation_node = create_operation(lhs, rhs);
                     expr_stack.push(operation_node);
                 }
                 _ => { Err(format!("Unexpected token {token} in arithmetic expression."))?; }
@@ -290,33 +293,34 @@ impl Parser {
 
 }
 
+#[derive(Debug, PartialEq)]
 pub struct NodeProgram{
     pub(crate) stmts: Vec<NodeStmt>
 }
 
-#[derive(Clone)]
-pub(crate) enum NodeStmt {
+#[derive(Clone, Debug, PartialEq)]
+pub enum NodeStmt {
     Exit(NodeExit),
     ID(NodeVariableAssignement)
 }
 
-#[derive(Clone)]
-pub(crate) struct NodeExit {
+#[derive(Clone, Debug, PartialEq)]
+pub struct NodeExit {
     pub(crate) expr: NodeArithmeticExpr
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct NodeVariableAssignement{
-    pub(crate) variable: Token,
-    pub(crate) value: NodeArithmeticExpr
+    pub variable: Token,
+    pub value: NodeArithmeticExpr
 }
-#[derive(Clone)]
-pub(crate) enum NodeArithmeticExpr {
+#[derive(Clone, Debug, PartialEq)]
+pub enum NodeArithmeticExpr {
     Base(NodeBaseExpr),
     Operation(NodeArithmeticOperation)
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NodeArithmeticOperation {
     pub(crate) lhs: Either<Box<NodeArithmeticExpr>, NodeBaseExpr>,
     pub(crate) rhs: Either<Box<NodeArithmeticExpr>, NodeBaseExpr>,
@@ -324,12 +328,17 @@ pub(crate) struct NodeArithmeticOperation {
 }
 
 
-#[derive(Clone)]
-pub(crate) enum NodeBaseExpr {
+#[derive(Clone, Debug, PartialEq)]
+pub enum NodeBaseExpr {
     Num(Token),
     ID(Token)
 }
 
+impl NodeProgram{
+    pub fn get_stmts(& self) -> Vec<NodeStmt>{
+        self.stmts.clone()
+    }
+}
 
 impl fmt::Display for NodeVariableAssignement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
