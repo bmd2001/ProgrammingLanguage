@@ -34,7 +34,9 @@ impl Tokenizer {
             buf.push(last_char);
             let token = self.check_buf(&buf, input);
             self.m_index += 1;
-            self.m_visited += 1;
+            if token != Some(Token::NewLine){
+                self.m_visited += 1;
+            }
             if token.is_some() {
                 buf.clear();
                 self.m_tokens.push(token.unwrap());
@@ -55,7 +57,7 @@ impl Tokenizer {
             "+" => Some(Token::Operator(Operator::Plus)),
             "-" => Some(Token::Operator(Operator::Minus)),
             "*" => {
-                if !matches!(self.peek(input, 1), Some('*')){
+                if self.peek(input, 1) != Some('*'){
                     Some(Token::Operator(Operator::Multiplication))
                 } else {None}
             },
@@ -97,11 +99,7 @@ impl Tokenizer {
     }
 
     fn peek(&mut self, input: &str, offset: usize) -> Option<char> {
-        if self.m_index + offset >= input.len() {
-            return None;
-        }
-        let c = input.chars().nth(self.m_index+offset).unwrap(); // Accessing nth char
-        Some(c)
+        input.chars().nth(self.m_index+offset)
     }
 }
 

@@ -137,65 +137,27 @@ impl Parser {
                 Token::Operator(op) => {
                     let rhs = expr_stack.pop().ok_or("Insufficient operands")?;
                     let lhs = expr_stack.pop().ok_or("Insufficient operands")?;
-                    if op.associativity().eq("Left") {
-                        if let NodeArithmeticExpr::Base(rhs_base) = rhs {
-                            if let NodeArithmeticExpr::Base(lhs_base) = lhs{
-                                expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                    lhs: Right(lhs_base),
-                                    rhs: Right(rhs_base),
-                                    op: Token::Operator(op),
-                                }))
-                            } else{
-                                expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                    lhs: Left(Box::new(lhs)),
-                                    rhs: Right(rhs_base),
-                                    op: Token::Operator(op),
-                                }))
-                            }
-                        } else if let NodeArithmeticExpr::Base(lhs_base) = lhs {
-                            expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                lhs: Left(Box::new(rhs)),
-                                rhs: Right(lhs_base),
-                                op: Token::Operator(op),
-                            }))
-                        } else {
-                            expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                lhs: Left(Box::new(lhs)),
-                                rhs: Left(Box::new(rhs)),
-                                op: Token::Operator(op),
-                            }))
-                        }
-                    } else{
-                        if let NodeArithmeticExpr::Base(rhs_base) = rhs {
-                            if let NodeArithmeticExpr::Base(lhs_base) = lhs{
-                                expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                lhs: Right(lhs_base),
-                                rhs: Right(rhs_base),
-                                op: Token::Operator(op),
-                            }))
-                            } else{
-                                expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                    lhs: Left(Box::new(lhs)),
-                                    rhs: Right(rhs_base),
-                                    op: Token::Operator(op),
-                                }))
-                            }
-                        } else if let NodeArithmeticExpr::Base(lhs_base) = lhs {
-                            expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                lhs: Right(lhs_base),
-                                rhs: Left(Box::new(rhs)),
-                                op: Token::Operator(op),
-                            }))
-                        } else {
-                            {
-                                expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                    lhs: Left(Box::new(lhs)),
-                                    rhs: Left(Box::new(rhs)),
-                                    op: Token::Operator(op),
-                                }))
-                            }
-                        }
-                    }
+
+                    // Helper function to construct the operation
+                    let create_operation = |lhs: NodeArithmeticExpr, rhs: NodeArithmeticExpr, op: Operator| {
+                        
+                        let lhs_node = match lhs {
+                            NodeArithmeticExpr::Base(base) => Right(base),
+                            _ => Left(Box::new(lhs)),
+                        };
+                        let rhs_node = match rhs {
+                            NodeArithmeticExpr::Base(base) => Right(base),
+                            _ => Left(Box::new(rhs)),
+                        };
+                        NodeArithmeticExpr::Operation(NodeArithmeticOperation {
+                            lhs: lhs_node,
+                            rhs: rhs_node,
+                            op: token,
+                        })
+                    };
+
+                    let operation_node = create_operation(lhs, rhs, op.clone());
+                    expr_stack.push(operation_node);
                 }
                 _ => { Err(format!("Unexpected token {token} in arithmetic expression."))?; }
             }
@@ -391,12 +353,22 @@ impl fmt::Display for NodeArithmeticExpr {
 impl fmt::Display for NodeArithmeticOperation {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Format the operation as `lhs op rhs`
+        let lhs_str = if matches!(self.lhs, Left(..)) {
+            format!("({})", self.lhs)
+        } else{
+            format!("{}", self.lhs)
+        };
+        let rhs_str = if matches!(self.rhs, Left(..)) {
+            format!("({})", self.rhs)
+        } else{
+            format!("{}", self.rhs)
+        };
         write!(
             f,
             "{} {} {}",
-            self.lhs,           // Left-hand side
-            self.op,            // Operator
-            self.rhs           // Dereference Box for right-hand side
+            lhs_str,
+            self.op,
+            rhs_str
         )
     }
 }
