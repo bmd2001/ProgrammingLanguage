@@ -84,37 +84,32 @@ fn test_wrong_input() {
 #[test]
 fn test_operators(){
     let mut tokenizer = TOKENIZER.lock().unwrap();
-    tokenizer.tokenize("x=1+2\ny=x-1\nz=3*y\nw=x//y\nexit(w)");
+    tokenizer.tokenize("(+-*//**%)");
 
     let expected_token = vec!(
-        Token::ID{ name: "x".to_string(), span: (0, 0) },
-        Token::Equals,
-        Token::Number { value: "1".to_string(), span: (0, 2) },
-        Token::Operator(Operator::Plus),
-        Token::Number { value: "2".to_string(), span: (0, 4) },
-        Token::NewLine,
-        Token::ID{ name: "y".to_string(), span: (1, 0) },
-        Token::Equals,
-        Token::ID{ name: "x".to_string(), span: (1, 2) },
-        Token::Operator(Operator::Minus),
-        Token::Number { value: "1".to_string(), span: (1, 4) },
-        Token::NewLine,
-        Token::ID{ name: "z".to_string(), span: (2, 0) },
-        Token::Equals,
-        Token::Number { value: "3".to_string(), span: (2, 2) },
-        Token::Operator(Operator::Multiplication),
-        Token::ID { name: "y".to_string(), span: (2, 4) },
-        Token::NewLine,
-        Token::ID{ name: "w".to_string(), span: (3, 0) },
-        Token::Equals,
-        Token::ID { name: "x".to_string(), span: (3, 2) },
-        Token::Operator(Operator::Division),
-        Token::ID { name: "y".to_string(), span: (3, 5) },
-        Token::NewLine,
-        Token::Exit { span: (4, 0) },
         Token::OpenParen,
-        Token::ID { name: "w".to_string(), span: (4, 5) },
+        Token::Operator(Operator::Plus),
+        Token::Operator(Operator::Minus),
+        Token::Operator(Operator::Multiplication),
+        Token::Operator(Operator::Division),
+        Token::Operator(Operator::Exponent),
+        Token::Operator(Operator::Modulus),
         Token::CloseParen
+    );
+    assert_eq!(tokenizer.get_tokens(), expected_token);
+    
+    tokenizer.tokenize("*** * ** ** *");
+    let expected_token = vec!(
+        Token::Operator(Operator::Exponent),
+        Token::Operator(Operator::Multiplication),
+        Token::WhiteSpace,
+        Token::Operator(Operator::Multiplication),
+        Token::WhiteSpace,
+        Token::Operator(Operator::Exponent),
+        Token::WhiteSpace,
+        Token::Operator(Operator::Exponent),
+        Token::WhiteSpace,
+        Token::Operator(Operator::Multiplication)
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
 }
