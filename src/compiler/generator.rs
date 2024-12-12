@@ -1,6 +1,6 @@
 use std::any::type_name;
 use std::collections::HashMap;
-use either::Either;
+use either::Either::{Left, Right};
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignement, NodeArithmeticExpr, NodeArithmeticOperation};
 use crate::compiler::tokenizer::{Operator, Token};
 
@@ -13,12 +13,13 @@ pub struct Generator {
     m_prog: NodeProgram,
     m_output: String,
     m_id_names: HashMap<String, usize>,
-    m_stack_size: usize
+    m_stack_size: usize,
+    num_exponentials: usize
 }
 
 impl Generator {
     pub fn new(prog : NodeProgram) -> Self {
-        Generator {m_prog: prog, m_output: "".to_string(), m_id_names: HashMap::new(), m_stack_size: 0}
+        Generator {m_prog: prog, m_output: "".to_string(), m_id_names: HashMap::new(), m_stack_size: 0, num_exponentials: 0 }
     }
     
     pub fn get_out_assembly(& self) -> String {
@@ -102,10 +103,13 @@ impl Generator {
                 match op_type{
                     Operator::Plus => {
                         match expr.clone().lhs {
-                            Either::Left(b) => {self.generate_arithmetic_expr(&b); self.m_output.push_str("\t; Addition\n ");}
-                            Either::Right(base) => {self.m_output.push_str("\t; Addition\n "); self.generate_base_expr(&base);}
+                            Left(b) => {self.generate_arithmetic_expr(&b); self.m_output.push_str("\t; Addition\n ");}
+                            Right(base) => {self.m_output.push_str("\t; Addition\n "); self.generate_base_expr(&base);}
                         }
-                        self.generate_base_expr(&expr.rhs);
+                        match expr.clone().rhs {
+                            Left(b) => {self.generate_arithmetic_expr(&b);}
+                            Right(base) => { self.generate_base_expr(&base);}
+                        }
                         self.pop("rax");
                         self.pop("rbx");
                         self.m_output.push_str("\tadd rax, rbx\n");
@@ -113,10 +117,13 @@ impl Generator {
                     }
                     Operator::Minus => {
                         match expr.clone().lhs {
-                            Either::Left(b) => {self.generate_arithmetic_expr(&b); self.m_output.push_str("\t; Subtraction\n ");}
-                            Either::Right(base) => {self.m_output.push_str("\t; Subtraction\n "); self.generate_base_expr(&base);}
+                            Left(b) => {self.generate_arithmetic_expr(&b); self.m_output.push_str("\t; Subtraction\n ");}
+                            Right(base) => {self.m_output.push_str("\t; Subtraction\n "); self.generate_base_expr(&base);}
                         }
-                        self.generate_base_expr(&expr.rhs);
+                        match expr.clone().rhs {
+                            Left(b) => {self.generate_arithmetic_expr(&b);}
+                            Right(base) => { self.generate_base_expr(&base);}
+                        }
                         self.pop("rbx");
                         self.pop("rax");
                         self.m_output.push_str("\tsub rax, rbx\n");
@@ -124,10 +131,13 @@ impl Generator {
                     }
                     Operator::Multiplication => {
                         match expr.clone().lhs {
-                            Either::Left(b) => {self.generate_arithmetic_expr(&b); self.m_output.push_str("\t; Multiplication\n ");}
-                            Either::Right(base) => {self.m_output.push_str("\t; Multiplication\n "); self.generate_base_expr(&base);}
+                            Left(b) => {self.generate_arithmetic_expr(&b); self.m_output.push_str("\t; Multiplication\n ");}
+                            Right(base) => {self.m_output.push_str("\t; Multiplication\n "); self.generate_base_expr(&base);}
                         }
-                        self.generate_base_expr(&expr.rhs);
+                        match expr.clone().rhs {
+                            Left(b) => {self.generate_arithmetic_expr(&b);}
+                            Right(base) => { self.generate_base_expr(&base);}
+                        }
                         self.pop("rax");
                         self.pop("rbx");
                         self.m_output.push_str("\tmul rbx\n");
@@ -135,21 +145,42 @@ impl Generator {
                     }
                     Operator::Division => {
                         match expr.clone().lhs {
-                            Either::Left(b) => {self.generate_arithmetic_expr(&b);self.m_output.push_str("\t; Division\n ");}
-                            Either::Right(base) => {self.m_output.push_str("\t; Division\n "); self.generate_base_expr(&base);}
+                            Left(b) => {self.generate_arithmetic_expr(&b);self.m_output.push_str("\t; Division\n ");}
+                            Right(base) => {self.m_output.push_str("\t; Division\n "); self.generate_base_expr(&base);}
                         }
-                        self.generate_base_expr(&expr.rhs);
+                        match expr.clone().rhs {
+                            Left(b) => {self.generate_arithmetic_expr(&b);}
+                            Right(base) => { self.generate_base_expr(&base);}
+                        }
                         self.pop("rbx");
                         self.pop("rax");
                         self.m_output.push_str("\txor rdx, rdx   ; Clear the remainder register\n\tdiv rbx\n");
                         self.push("rax");
+                    },
+                    Operator::Exponent => {
+                        match expr.clone().rhs {
+                            Left(b) => {self.generate_arithmetic_expr(&b);self.m_output.push_str("\t; Exponentiation\n ");}
+                            Right(base) => {self.m_output.push_str("\t; Exponentiation\n "); self.generate_base_expr(&base);}
+                        }
+                        match expr.clone().lhs {
+                            Left(b) => {self.generate_arithmetic_expr(&b);}
+                            Right(base) => { self.generate_base_expr(&base);}
+                        }
+                        self.pop("rdx");
+                        self.pop("rcx");
+                        let (exp_label, done_label) = self.generate_exponential_labels();
+                        self.m_output.push_str(&*format!("\tmov rax, 1\n{exp_label}:\n\tcmp rcx, 0\n\tje {done_label}\n\timul rax, rdx\n\tdec rcx\n\tjmp {exp_label}\n{done_label}:\n"));
+                        self.push("rax");
                     }
                     Operator::Modulus => {
                         match expr.clone().lhs {
-                            Either::Left(b) => {self.generate_arithmetic_expr(&b);self.m_output.push_str("\t; Modulus\n ");}
-                            Either::Right(base) => {self.m_output.push_str("\t; Modulus\n "); self.generate_base_expr(&base);}
+                            Left(b) => {self.generate_arithmetic_expr(&b);self.m_output.push_str("\t; Modulus\n ");}
+                            Right(base) => {self.m_output.push_str("\t; Modulus\n "); self.generate_base_expr(&base);}
                         }
-                        self.generate_base_expr(&expr.rhs);
+                        match expr.clone().rhs {
+                            Left(b) => {self.generate_arithmetic_expr(&b);}
+                            Right(base) => { self.generate_base_expr(&base);}
+                        }
                         self.pop("rbx");
                         self.pop("rax");
                         self.m_output.push_str("\txor rdx, rdx   ; Clear the remainder register\n\tdiv rbx\n");
@@ -172,6 +203,12 @@ impl Generator {
     fn pop(&mut self, reg: &str) {
         self.m_output.push_str(format!("\tpop {reg}\n").as_str());
         self.m_stack_size -= 1;
+    }
+    
+    fn generate_exponential_labels(&mut self) -> (String, String){
+        let result = (format!("exponential{}", self.num_exponentials), format!("exp_done{}", self.num_exponentials));
+        self.num_exponentials += 1;
+        result
     }
 
 }

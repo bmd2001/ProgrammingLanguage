@@ -31,6 +31,7 @@ $$
         \div \\
         + \\
         - \\
+        \wedge \\
         \%
     \end{cases}
 \end{gather}

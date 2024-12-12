@@ -28,7 +28,7 @@ impl Tokenizer {
         dbg!(&input);
         self.clear();
         let mut buf : Vec<char> = Vec::new();
-        let mut peek = self.peek(input, None);
+        let mut peek = self.peek(input, 0);
         while peek.is_some() {
             let last_char = peek.unwrap();
             buf.push(last_char);
@@ -39,7 +39,7 @@ impl Tokenizer {
                 buf.clear();
                 self.m_tokens.push(token.unwrap());
             };
-            peek = self.peek(input, None);
+            peek = self.peek(input, 0);
         }
         dbg!(self.m_tokens.len());
     }
@@ -54,7 +54,12 @@ impl Tokenizer {
             " " => Some(Token::WhiteSpace),
             "+" => Some(Token::Operator(Operator::Plus)),
             "-" => Some(Token::Operator(Operator::Minus)),
-            "*" => Some(Token::Operator(Operator::Multiplication)),
+            "*" => {
+                if !matches!(self.peek(input, 1), Some('*')){
+                    Some(Token::Operator(Operator::Multiplication))
+                } else {None}
+            },
+            "**" => Some(Token::Operator(Operator::Exponent)),
             "//" => Some(Token::Operator(Operator::Division)),
             "%" => Some(Token::Operator(Operator::Modulus)),
             "\n" => {
@@ -74,7 +79,7 @@ impl Tokenizer {
 
     fn tokenize_primary_expr(&mut self, buf : &str, input: &str) -> Option<Token> {
         // Check if the buffer contains only digits and the next character is not a digit
-        let next_char = self.peek(input, Some(1)).unwrap_or(' ');
+        let next_char = self.peek(input, 1).unwrap_or(' ');
         if buf.chars().all(|c| c.is_digit(10)) && !next_char.is_digit(10) && !next_char.is_alphabetic(){
             return Some(Token::Number {value : String::from(buf), span: (self.m_line, self.m_visited + 1 - buf.len()) })
         }
@@ -91,12 +96,11 @@ impl Tokenizer {
         None
     }
 
-    fn peek(&mut self, input: &str, offset: Option<usize>) -> Option<char> {
-        let off = offset.unwrap_or(0);
-        if self.m_index + off >= input.len() {
+    fn peek(&mut self, input: &str, offset: usize) -> Option<char> {
+        if self.m_index + offset >= input.len() {
             return None;
         }
-        let c = input.chars().nth(self.m_index+off).unwrap(); // Accessing nth char
+        let c = input.chars().nth(self.m_index+offset).unwrap(); // Accessing nth char
         Some(c)
     }
 }
@@ -121,9 +125,10 @@ pub enum Operator {
     Minus,
     Multiplication,
     Division,
+    Exponent,
     Modulus,
     OpenParenthesis,
-    ClosedParenthesis,
+    ClosedParenthesis
 }
 
 // Implement Display for Operator
@@ -134,9 +139,11 @@ impl fmt::Display for Operator {
             Operator::Minus => "-",
             Operator::Multiplication => "*",
             Operator::Division => "/",
+            Operator::Exponent => "^",
+            Operator::Modulus => "%",
             Operator::OpenParenthesis => "(",
-            Operator::ClosedParenthesis => ")",
-            Operator::Modulus => "%"
+            Operator::ClosedParenthesis => ")"
+
         };
         write!(f, "{}", symbol)
     }
@@ -164,7 +171,14 @@ impl Operator {
         match self {
             Operator::Plus | Operator::Minus => {0}
             Operator::Multiplication | Operator::Division | Operator::Modulus => {1}
-            Operator::OpenParenthesis | Operator::ClosedParenthesis => {2}
+            Operator::OpenParenthesis | Operator::ClosedParenthesis | Operator::Exponent => {2}
+        }
+    }
+    
+    pub fn associativity(self) -> String {
+        match self{
+            Operator::Exponent => {"Right".to_string()}
+            _ => {"Left".to_string()}
         }
     }
 }
