@@ -1,6 +1,7 @@
 pub mod tokenizer;
 pub mod parser;
 pub mod generator;
+mod arithmetic_instructions;
 
 use crate::compiler::tokenizer::{Token, Tokenizer};
 use crate::compiler::parser::{NodeProgram, Parser};
