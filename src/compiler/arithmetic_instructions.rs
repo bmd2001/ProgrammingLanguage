@@ -27,7 +27,7 @@ impl ArithmeticInstructions {
             ("Division".to_string(),
             operation("rax","rbx", "rax", vec!["xor rdx, rdx", "div rbx"])),
             ("Exponentiation".to_string(),
-            operation("rax","rbx", "rax", vec![
+            operation("rcx","rdx", "rax", vec![
             "mov rax, 1", "{exp_label}:", "cmp rcx, 0", "je {done_label}", "imul rax, rdx", "dec rcx", "jmp {exp_label}", "{done_label}:"
             ])),
             ("Modulo".to_string(),
