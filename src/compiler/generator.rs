@@ -140,8 +140,8 @@ impl Generator {
     
     fn process_binary_operation(
         &mut self, 
-        lhs: Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, 
-        rhs: Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, 
+        lhs: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>, 
+        rhs: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>, 
         instruction: &str,
         instruction_data: &((String, String), String, Vec<String>)
     ) {
@@ -171,11 +171,11 @@ impl Generator {
 
     fn process_operand (
         &mut self,
-        operand: Either<Box<NodeArithmeticExpr>, NodeBaseExpr>
+        operand: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>
     ) {
         match operand {
             Left(b) => {
-                self.generate_arithmetic_expr(&b);
+                self.generate_arithmetic_expr(&NodeArithmeticExpr::Operation(*b));
             },
             Right(base) => {
                 self.generate_base_expr(&base);

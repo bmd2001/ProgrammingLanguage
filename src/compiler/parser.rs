@@ -53,35 +53,36 @@ impl Parser {
     }
     
     fn parse_exit(&mut self) -> Result<NodeExit, String>{
-        let first_is_exit = matches!(self.peek(0), Some(Token::Exit { span: _ }));
-        if !first_is_exit {
-            return Err("exit is not present".to_string())
+        let tokens = self.peek_range(2, false).ok_or("Not enough tokens for 'exit' statement".to_string())?;
+        // Check if the first token is 'exit'
+        if !matches!(tokens.get(0), Some(Token::Exit { .. })) {
+            return Err("exit is not present".to_string());
         }
-        let second_is_oparen = matches!(self.peek(1), Some(Token::OpenParen));
-        if second_is_oparen {
-            self.advance(2, false);
-            let expr = self.parse_arithmetic_expr().map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
-            let last_is_cparen = matches!(self.peek(0), Some(Token::CloseParen));
-            return if last_is_cparen {
-                self.advance(1, false);
-                Ok( match expr {
-                    Left(b) => {if let NodeArithmeticExpr::Operation(NodeArithmeticOperation { lhs, rhs, op }) = *b {
-                        NodeExit{ expr: NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                            lhs,
-                            rhs,
-                            op,
-                        })}
-                    } else {
-                        // Handle the unexpected case (optional)
-                        panic!("Expected a NodeArithmeticExpr::Operation, found something else.");
-                    }}
-                    Right(base) => {NodeExit{expr: NodeArithmeticExpr::Base(base)}}
-                })
-            } else {
-                Err("Error: Final ')' is missing.".to_string())
-            }
+        // Check if the second token is an opening parenthesis
+        if !matches!(tokens.get(1), Some(Token::OpenParen)) {
+            return Err("Error: Initial '(' is missing".to_string());
         }
-        Err("Error: Initial '(' is missing".to_string())
+        // Advance past 'exit' and '(' tokens
+        self.advance(2, false);
+
+        // Parse the arithmetic expression
+        let expr = self
+            .parse_arithmetic_expr()
+            .map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
+
+        // Check for closing parenthesis
+        if !matches!(self.peek(0), Some(Token::CloseParen)) {
+            return Err("Error: Final ')' is missing.".to_string());
+        }
+
+        // Advance past the closing parenthesis
+        self.advance(1, false);
+
+        // Return the parsed NodeExit
+        match expr{
+            Left(operation) => {Ok(NodeExit { expr: NodeArithmeticExpr::Operation(*operation) })}
+            Right(base) => {Ok(NodeExit { expr: NodeArithmeticExpr::Base(base) })}
+        }
     }
     
     fn parse_variable_assignement(&mut self) -> Result<NodeVariableAssignement, String>{
@@ -97,18 +98,7 @@ impl Parser {
                             Ok(NodeVariableAssignement {
                                 variable: id.clone(),
                                 value: {match expr{
-                                    Left(b) => {// Dereference the Box to access the NodeArithmeticExpr inside
-                                        if let NodeArithmeticExpr::Operation(NodeArithmeticOperation { lhs, rhs, op }) = *b {
-                                            NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                                lhs,
-                                                rhs,
-                                                op,
-                                            })
-                                        } else {
-                                            // Handle the unexpected case (optional)
-                                            panic!("Expected a NodeArithmeticExpr::Operation, found something else.");
-                                        }
-                                    }
+                                    Left(operation) => {NodeArithmeticExpr::Operation(*operation)}
                                     Right(base) => {NodeArithmeticExpr::Base(base)}
                                 }
                                 },  // The parsed value as a ArithmeticExpr
@@ -125,7 +115,7 @@ impl Parser {
         Err("Not enough tokens for variable assignment.".to_string())
     }
 
-    fn parse_arithmetic_expr(&mut self) -> Result<Either<Box<NodeArithmeticExpr>, NodeBaseExpr>, String> {
+    fn parse_arithmetic_expr(&mut self) -> Result<Either<Box<NodeArithmeticOperation>, NodeBaseExpr>, String> {
         let polish = self.create_reverse_polish_expr().map_err(|e| format!("Failed to create reverse PolishExpr: {}", e))?;
         let mut expr_stack: Vec<NodeArithmeticExpr> = Vec::new();
         for token in polish{
@@ -146,11 +136,11 @@ impl Parser {
                         
                         let lhs_node = match lhs {
                             NodeArithmeticExpr::Base(base) => Right(base),
-                            _ => Left(Box::new(lhs)),
+                            NodeArithmeticExpr::Operation(operation) => Left(Box::new(operation))
                         };
                         let rhs_node = match rhs {
                             NodeArithmeticExpr::Base(base) => Right(base),
-                            _ => Left(Box::new(rhs)),
+                            NodeArithmeticExpr::Operation(operation) => Left(Box::new(operation))
                         };
                         NodeArithmeticExpr::Operation(NodeArithmeticOperation {
                             lhs: lhs_node,
@@ -168,7 +158,7 @@ impl Parser {
         
         match expr_stack.pop().ok_or("Insufficient operands")?{
             NodeArithmeticExpr::Base(base) => {Ok(Right(base))}
-            NodeArithmeticExpr::Operation(op) => {Ok(Left(Box::new(NodeArithmeticExpr::Operation(op))))}
+            NodeArithmeticExpr::Operation(op) => {Ok(Left(Box::new(op)))}
         }
         
     }
@@ -322,8 +312,8 @@ pub enum NodeArithmeticExpr {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NodeArithmeticOperation {
-    pub(crate) lhs: Either<Box<NodeArithmeticExpr>, NodeBaseExpr>,
-    pub(crate) rhs: Either<Box<NodeArithmeticExpr>, NodeBaseExpr>,
+    pub(crate) lhs: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>,
+    pub(crate) rhs: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>,
     pub(crate) op: Token
 }
 
