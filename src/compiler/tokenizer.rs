@@ -21,7 +21,7 @@ impl Tokenizer {
     
     fn emit_token(&mut self, token : Token) {
         self.m_row += 1;
-        if matches!(token, Token::NewLine){
+        if matches!(token, Token::NewLine {..}){
             self.handle_newline();
         }
         self.m_tokens.push(token);
@@ -44,12 +44,17 @@ impl Tokenizer {
                 self.emit_token(token);
                 buf.clear();
             }
+            else if buf.len() > 1 && ch == '\n'{
+                let error_span = self.get_span(buf.len()-1);
+                self.emit_token(Token::Err {span: error_span });
+                buf.clear();
+            }
             else if let Some(token) = self.match_ch(ch, chars.peek()) {
                 self.emit_token(token);
                 buf.clear();
             }
         }
-        if !buf.is_empty(){
+        if !buf.is_empty() {
             let error_span = self.get_span(buf.len());
             self.emit_token(Token::Err {span: error_span });
         }
@@ -57,19 +62,19 @@ impl Tokenizer {
     
     fn match_ch(&mut self, ch: char, peek: Option<&char>) -> Option<Token> {
         match ch {
-            '(' => Some(Token::OpenParen { span: (self.m_line, self.m_row) }),
-            ')' => Some(Token::CloseParen { span: (self.m_line, self.m_row) }),
-            '=' => Some(Token::Equals { span: (self.m_line, self.m_row) }),
-            ' ' => Some(Token::WhiteSpace),
-            '+' => Some(Token::Operator(Operator::Plus { span: (self.m_line, self.m_row) })),
-            '-' => Some(Token::Operator(Operator::Minus { span: (self.m_line, self.m_row)})),
-            '%' => Some(Token::Operator(Operator::Modulus {span : (self.m_line, self.m_row)})),
+            '(' => Some(Token::OpenParen { span: (self.m_line, (self.m_row, self.m_row)) }),
+            ')' => Some(Token::CloseParen { span: (self.m_line, (self.m_row, self.m_row)) }),
+            '=' => Some(Token::Equals { span: (self.m_line, (self.m_row, self.m_row)) }),
+            ' ' => Some(Token::WhiteSpace { span: (self.m_line, (self.m_row, self.m_row)) }),
+            '+' => Some(Token::Operator(Operator::Plus { span: (self.m_line, (self.m_row, self.m_row)) })),
+            '-' => Some(Token::Operator(Operator::Minus { span: (self.m_line, (self.m_row, self.m_row)) })),
+            '%' => Some(Token::Operator(Operator::Modulus { span: (self.m_line, (self.m_row, self.m_row)) })),
             '*' => {
                 if peek == Some(&'*'){
                     None
-                } else {Some(Token::Operator(Operator::Multiplication {span : (self.m_line, self.m_row)}))}
+                } else {Some(Token::Operator(Operator::Multiplication { span: (self.m_line, (self.m_row, self.m_row)) }))}
             },
-            '\n' => { Some(Token::NewLine)}
+            '\n' => { Some(Token::NewLine { span: (self.m_line, (self.m_row, self.m_row)) })}
             _ => {None}
         }
     }
@@ -135,25 +140,60 @@ pub enum Token {
     ID { name: String, span: (usize, (usize, usize)) },
     Number { value: String, span: (usize, (usize, usize)) },
     Exit {span: (usize, (usize, usize))},
-    OpenParen {span: (usize, usize)},
-    CloseParen {span: (usize, usize)},
-    Equals {span: (usize, usize)},
+    OpenParen {span: (usize, (usize, usize))},
+    CloseParen {span: (usize, (usize, usize))},
+    Equals {span: (usize, (usize, usize))},
     Operator(Operator),
-    WhiteSpace,
-    NewLine,
+    WhiteSpace {span: (usize, (usize, usize))},
+    NewLine {span: (usize, (usize, usize))},
     Err {span: (usize, (usize, usize))}
 }
 
 #[derive(Clone, Debug, PartialEq, Copy)]
 pub enum Operator {
-    Plus {span: (usize, usize)},
-    Minus {span: (usize, usize)},
-    Multiplication {span: (usize, usize)},
+    Plus {span: (usize, (usize, usize))},
+    Minus {span: (usize, (usize, usize))},
+    Multiplication {span: (usize, (usize, usize))},
     Division {span: (usize, (usize, usize))},
     Exponent {span: (usize, (usize, usize))},
-    Modulus {span: (usize, usize)},
-    OpenParenthesis {span: (usize, usize)},
-    ClosedParenthesis {span: (usize, usize)}
+    Modulus {span: (usize, (usize, usize))},
+    OpenParenthesis {span: (usize, (usize, usize))},
+    ClosedParenthesis {span: (usize, (usize, usize))}
+}
+
+impl Token {
+    pub fn get_span(&self) -> (usize, (usize, usize)) {
+        match self {
+            Token::ID { span, .. }
+            | Token::Number { span, .. }
+            | Token::Exit { span }
+            | Token::OpenParen { span }
+            | Token::CloseParen { span }
+            | Token::Equals { span }
+            | Token::WhiteSpace { span }
+            | Token::NewLine { span } => *span,
+            Token::Err { span } => { 
+                let (line, (start, end)) = *span;
+                (line, (start, end+1))
+            },
+            Token::Operator(op) => op.get_span(),
+        }
+    }
+}
+
+impl Operator {
+    pub fn get_span(&self) -> (usize, (usize, usize)) {
+        match self {
+            Operator::Plus { span }
+            | Operator::Minus { span }
+            | Operator::Multiplication { span }
+            | Operator::Division { span }
+            | Operator::Exponent { span }
+            | Operator::Modulus { span }
+            | Operator::OpenParenthesis { span }
+            | Operator::ClosedParenthesis { span } => *span,
+        }
+    }
 }
 
 // Implement Display for Operator
@@ -185,8 +225,8 @@ impl fmt::Display for Token {
             Token::CloseParen { .. } => write!(f, ")"),
             Token::Equals {..} => write!(f, "="),
             Token::Operator(op) => write!(f, "{}", op),
-            Token::WhiteSpace => write!(f, "\\s"),
-            Token::NewLine => write!(f, "NewLine"),
+            Token::WhiteSpace {..} => write!(f, "\\s"),
+            Token::NewLine {..} => write!(f, "NewLine"),
             _ => {write!(f, "err")}
         }
     }

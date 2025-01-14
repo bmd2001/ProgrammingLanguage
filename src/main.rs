@@ -31,13 +31,13 @@ fn main() {
         .expect("Should have been able to read the file");
 
     println!("With text:\n{contents}");
-    let assembly: Result<String, String>;
+    let assembly: Option<String>;
     {
         let mut compiler = Compiler::new();
-        assembly = compiler.compile(contents.as_str());
+        assembly = compiler.compile(file_path, contents.as_str());
     }
     match assembly {
-        Ok(assembly_code) => {
+        Some(assembly_code) => {
             println!("Assembly:\n{assembly_code}");
 
             // Write the assembly code to the file
@@ -78,8 +78,7 @@ fn main() {
 
             println!("{}", String::from_utf8_lossy(&ld_command.stdout));
         }
-        Err(e) => {
-            eprintln!("Error during compilation: {}", e);
+        None => {
             std::process::exit(1);
         }
     }

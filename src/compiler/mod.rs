@@ -2,6 +2,7 @@ pub mod tokenizer;
 pub mod parser;
 pub mod generator;
 mod arithmetic_instructions;
+pub mod logger;
 
 use crate::compiler::tokenizer::{Token, Tokenizer};
 use crate::compiler::parser::{NodeProgram, Parser};
@@ -16,7 +17,7 @@ impl Compiler {
         }
     }
 
-    pub fn compile(&mut self, input: &str) -> Result<String, String> {
+    pub fn compile(&mut self, file: &str, input: &str) -> Option<String> {
         // Tokenize
         let tokens: Vec<Token> = {
             let mut tokenizer = Tokenizer::new();
@@ -25,19 +26,19 @@ impl Compiler {
         };
 
         // Parse
-        let prog : NodeProgram = {
-            let mut parser = Parser::new(tokens);
-            parser.parse().map_err(|e| format!("Parse error: {}", e))?
+        let prog : Option<NodeProgram> = {
+            let mut parser = Parser::new(tokens, file.to_string(), input.to_string());
+            parser.parse()
         };
 
         // Generate
-        let out: String = {
+        let out: String = if let Some(prog) = prog {
             let mut generator = Generator::new(prog);
             generator.generate();
             generator.get_out_assembly()
-        };
+        } else { return None };
         
         // Return the generated assembly
-        Ok(out)
+        Some(out)
     }
 }

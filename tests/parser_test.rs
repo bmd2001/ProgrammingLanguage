@@ -27,7 +27,7 @@ static NOT_VALID_VAR_INPUTS: Lazy<Vec<&str>> = Lazy::new(|| vec![
 fn utility_create_parser(stmts: &str) -> Parser{
     let mut tokenizer = TOKENIZER.lock().unwrap();
     tokenizer.tokenize(stmts);
-    Parser::new(tokenizer.get_tokens())
+    Parser::new(tokenizer.get_tokens(), "".to_string(), stmts.to_string())
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn test_wrong_exit(){
     for bad_exit_input in &*NOT_VALID_EXIT_INPUTS {
         let mut parser = utility_create_parser(&bad_exit_input);
         let result = parser.parse();
-        assert!(result.is_err(), "For input `{bad_exit_input}`, the parser should fail but succeeded with: {:?}", result);
+        assert!(result.is_none(), "For input `{bad_exit_input}`, the parser should fail but succeeded with: {:?}", result);
     }
 }
 
@@ -85,6 +85,6 @@ fn test_wrong_variable_assignment(){
     for bad_var_input in &*NOT_VALID_VAR_INPUTS  {
         let mut parser = utility_create_parser(&bad_var_input);
         let result = parser.parse();
-        assert!(result.is_err(), "For input `{bad_var_input}`, the parser should fail but succeeded with: {:?}", result);
+        assert!(result.is_none(), "For input `{bad_var_input}`, the parser should fail but succeeded with: {:?}", result);
     }
 }
