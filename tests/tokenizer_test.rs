@@ -20,10 +20,10 @@ fn test_exit_input() {
     tokenizer.tokenize("exit(0)");
     
     let expected_token = vec!(
-        Token::Exit { span: (0, 0) },
-        Token::OpenParen,
-        Token::Number { value: "0".to_string(), span: (0, 5) },
-        Token::CloseParen
+        Token::Exit { span: (0, (0, 3)) },
+        Token::OpenParen { span: (0, 4) },
+        Token::Number { value: "0".to_string(), span: (0, (5, 5)) },
+        Token::CloseParen { span: (0, 6) }
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
 }
@@ -33,7 +33,7 @@ fn test_multiple_whitespaces_input() {
     tokenizer.tokenize("x       =     0  ");
 
     let expected_token = vec!(
-        Token::ID { name: "x".to_string(), span: (0, 0) },
+        Token::ID { name: "x".to_string(), span: (0, (0, 0)) },
         Token::WhiteSpace,
         Token::WhiteSpace,
         Token::WhiteSpace,
@@ -41,15 +41,27 @@ fn test_multiple_whitespaces_input() {
         Token::WhiteSpace,
         Token::WhiteSpace,
         Token::WhiteSpace,
-        Token::Equals,
+        Token::Equals {span : (0, 8)},
         Token::WhiteSpace,
         Token::WhiteSpace,
         Token::WhiteSpace,
         Token::WhiteSpace,
         Token::WhiteSpace,
-        Token::Number { value: "0".to_string(), span: (0, 14) },
+        Token::Number { value: "0".to_string(), span: (0, (14, 14)) },
         Token::WhiteSpace,
         Token::WhiteSpace
+    );
+    assert_eq!(tokenizer.get_tokens(), expected_token);
+}
+
+#[test]
+fn test_variable_with_numbers(){
+    let mut tokenizer = TOKENIZER.lock().unwrap();
+    tokenizer.tokenize("x1=0");
+    let expected_token = vec!(
+        Token::ID { name: "x1".to_string(), span: (0, (0, 1)) },
+        Token::Equals {span : (0, 2)},
+        Token::Number { value: "0".to_string(), span: (0, (3, 3)) },
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
 }
@@ -60,16 +72,16 @@ fn test_multiline_input() {
     tokenizer.tokenize("x = 0\nexit(x)");
 
     let expected_token = vec!(
-        Token::ID{ name: "x".to_string(), span: (0, 0) },
+        Token::ID{ name: "x".to_string(), span: (0, (0, 0)) },
         Token::WhiteSpace,
-        Token::Equals,
+        Token::Equals {span : (0, 2)},
         Token::WhiteSpace,
-        Token::Number { value: "0".to_string(), span: (0, 4) },
+        Token::Number { value: "0".to_string(), span: (0, (4, 4)) },
         Token::NewLine,
-        Token::Exit { span: (1, 0) },
-        Token::OpenParen,
-        Token::ID { name: "x".to_string(), span: (1, 5) },
-        Token::CloseParen
+        Token::Exit { span: (1, (0, 3)) },
+        Token::OpenParen { span: (1, 4)},
+        Token::ID { name: "x".to_string(), span: (1, (5, 5)) },
+        Token::CloseParen { span: (1, 6) }
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
 }
@@ -78,7 +90,14 @@ fn test_multiline_input() {
 fn test_wrong_input() {
     let mut tokenizer = TOKENIZER.lock().unwrap();
     tokenizer.tokenize("1x = 0");
-    assert_eq!(tokenizer.get_tokens(), vec!(Token::Err));
+    let expected_token = vec!(
+        Token::Err {span: (0, (0, 1)) },
+        Token::WhiteSpace,
+        Token::Equals {span : (0, 3)},
+        Token::WhiteSpace,
+        Token::Number { value: "0".to_string(), span: (0, (5, 5)) }
+    );
+    assert_eq!(tokenizer.get_tokens(), expected_token);
 }
 
 #[test]
@@ -87,29 +106,29 @@ fn test_operators(){
     tokenizer.tokenize("(+-*//**%)");
 
     let expected_token = vec!(
-        Token::OpenParen,
-        Token::Operator(Operator::Plus),
-        Token::Operator(Operator::Minus),
-        Token::Operator(Operator::Multiplication),
-        Token::Operator(Operator::Division),
-        Token::Operator(Operator::Exponent),
-        Token::Operator(Operator::Modulus),
-        Token::CloseParen
+        Token::OpenParen {span: (0, 0)},
+        Token::Operator(Operator::Plus {span: (0, 1)}),
+        Token::Operator(Operator::Minus {span: (0, 2)}),
+        Token::Operator(Operator::Multiplication {span: (0, 3)}),
+        Token::Operator(Operator::Division {span: (0, (4, 5))}),
+        Token::Operator(Operator::Exponent {span: (0, (6, 7))}),
+        Token::Operator(Operator::Modulus {span: (0, 8)}),
+        Token::CloseParen {span: (0, 9)}
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
 
     tokenizer.tokenize("*** * ** ** *");
     let expected_token = vec!(
-        Token::Operator(Operator::Exponent),
-        Token::Operator(Operator::Multiplication),
+        Token::Operator(Operator::Exponent {span: (0, (0, 1))}),
+        Token::Operator(Operator::Multiplication {span: (0, 2)}),
         Token::WhiteSpace,
-        Token::Operator(Operator::Multiplication),
+        Token::Operator(Operator::Multiplication {span: (0, 4)}),
         Token::WhiteSpace,
-        Token::Operator(Operator::Exponent),
+        Token::Operator(Operator::Exponent {span: (0, (6, 7))}),
         Token::WhiteSpace,
-        Token::Operator(Operator::Exponent),
+        Token::Operator(Operator::Exponent {span: (0, (9, 10))}),
         Token::WhiteSpace,
-        Token::Operator(Operator::Multiplication)
+        Token::Operator(Operator::Multiplication {span: (0, 12)}),
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
 }

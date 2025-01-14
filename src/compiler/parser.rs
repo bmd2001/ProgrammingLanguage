@@ -16,7 +16,7 @@ impl Parser {
     pub fn parse(&mut self) -> Result<NodeProgram, String>{
         let mut prog = NodeProgram { stmts: Vec::new() };
         while let Some(token) = self.peek(0) {
-            if *token == Token::Err{
+            if matches!(*token, Token::Err { .. }){
                 return Err("An error was present when parsing".to_string());
             }
             match self.parse_stmt() {
@@ -39,10 +39,10 @@ impl Parser {
                 Err(format!("Failed to parse Exit statement:\n- Exit Error: {exit_err}"))
             },
             _ => {
-                match self.parse_variable_assignement() {
+                match self.parse_variable_assignment() {
                     Ok(var) => Ok(NodeStmt::ID(var)),
                     Err(var_err) => {
-                        // Return an error if parse_variable_assignement fails
+                        // Return an error if parse_variable_assignment fails
                         Err(format!(
                             "Failed to parse Variable Assignment statement:\n- Variable Assignment Error: {var_err}"
                         ))
@@ -59,7 +59,7 @@ impl Parser {
             return Err("exit is not present".to_string());
         }
         // Check if the second token is an opening parenthesis
-        if !matches!(tokens.get(1), Some(Token::OpenParen)) {
+        if !matches!(tokens.get(1), Some(Token::OpenParen { .. })) {
             return Err("Error: Initial '(' is missing".to_string());
         }
         // Advance past 'exit' and '(' tokens
@@ -71,7 +71,7 @@ impl Parser {
             .map_err(|e| format!("Invalid expression in 'exit': {}", e))?;
 
         // Check for closing parenthesis
-        if !matches!(self.peek(0), Some(Token::CloseParen)) {
+        if !matches!(self.peek(0), Some(Token::CloseParen {..})) {
             return Err("Error: Final ')' is missing.".to_string());
         }
 
@@ -85,7 +85,7 @@ impl Parser {
         }
     }
     
-    fn parse_variable_assignement(&mut self) -> Result<NodeVariableAssignement, String>{
+    fn parse_variable_assignment(&mut self) -> Result<NodeVariableAssignment, String>{
         if let Some(tokens) = self.peek_range(3, true){
             return match &tokens[..2] {
                 [
@@ -95,7 +95,7 @@ impl Parser {
                     self.advance(2, true);
                     match self.parse_arithmetic_expr() {
                         Ok(expr) => {
-                            Ok(NodeVariableAssignement {
+                            Ok(NodeVariableAssignment {
                                 variable: id.clone(),
                                 value: {match expr{
                                     Left(operation) => {NodeArithmeticExpr::Operation(*operation)}
@@ -127,7 +127,7 @@ impl Parser {
                 Token::Number { .. } => {
                     expr_stack.push(NodeArithmeticExpr::Base(NodeBaseExpr::Num(token.clone())));
                 },
-                Token::Operator(op) => {
+                Token::Operator(..) => {
                     let rhs = expr_stack.pop().ok_or("Insufficient operands")?;
                     let lhs = expr_stack.pop().ok_or("Insufficient operands")?;
 
@@ -171,14 +171,14 @@ impl Parser {
                 Token::ID { .. } | Token::Number { .. } => {
                     polish.push_back(token.clone());
                 }
-                Token::OpenParen => {
-                    stack.push(Operator::OpenParenthesis)
+                Token::OpenParen {span} => {
+                    stack.push(Operator::OpenParenthesis { span: *span })
                 }
-                Token::CloseParen => {
+                Token::CloseParen {..} => {
                     if self.peek(1).is_some() && !matches!(self.peek(1), Some(Token::NewLine)) {
-                        while !matches!(stack.last(), Some(Operator::OpenParenthesis)) {
+                        while !matches!(stack.last(), Some(Operator::OpenParenthesis {..})) {
                             if stack.is_empty() {
-                                Err("Missmatched Parenthesis: ( is missing".to_string())?
+                                Err("Mismatched Parenthesis: ( is missing".to_string())?
                             }
                             let op = stack.pop().unwrap();
                             polish.push_back(Token::Operator(op))
@@ -188,7 +188,7 @@ impl Parser {
                 }
                 Token::Operator(op) => {
                     while let Some(operator) = stack.pop() {
-                        if matches!(operator, Operator::OpenParenthesis) || (operator.precedence() <= op.clone().precedence() && (operator.precedence() != op.clone().precedence() || op.clone().associativity().eq("Right"))){
+                        if matches!(operator, Operator::OpenParenthesis {..}) || (operator.precedence() <= op.clone().precedence() && (operator.precedence() != op.clone().precedence() || op.clone().associativity().eq("Right"))){
                             stack.push(operator);
                             break;
                         }
@@ -204,7 +204,7 @@ impl Parser {
             self.advance(1, true);
         }
         while let Some(i) = stack.pop(){
-            if matches!(i, Operator::OpenParenthesis){Err("Missmatched Parenthesis: ) is missing")?}
+            if matches!(i, Operator::OpenParenthesis {..}){Err("Mismatched Parenthesis: ) is missing")?}
             polish.push_back(Token::Operator(i));
         }
         dbg!(polish.clone());
@@ -291,7 +291,7 @@ pub struct NodeProgram{
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeStmt {
     Exit(NodeExit),
-    ID(NodeVariableAssignement)
+    ID(NodeVariableAssignment)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -300,7 +300,7 @@ pub struct NodeExit {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct NodeVariableAssignement{
+pub struct NodeVariableAssignment {
     pub variable: Token,
     pub value: NodeArithmeticExpr
 }
@@ -330,7 +330,7 @@ impl NodeProgram{
     }
 }
 
-impl fmt::Display for NodeVariableAssignement {
+impl fmt::Display for NodeVariableAssignment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Token::ID { name, .. } = &self.variable {
             write!(f, "{} = {}", name, self.value)

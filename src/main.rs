@@ -7,7 +7,6 @@ use crate::compiler::Compiler;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    dbg!(&args);
     if args.len() < 2 {
         eprintln!("Usage: BRS <file.brs>");
         std::process::exit(1);

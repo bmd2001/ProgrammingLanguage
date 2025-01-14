@@ -2,7 +2,7 @@ use std::any::type_name;
 use std::collections::HashMap;
 use either::Either;
 use either::Either::{Left, Right};
-use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignement, NodeArithmeticExpr, NodeArithmeticOperation};
+use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::arithmetic_instructions::{ArithmeticInstructions};
 
@@ -56,11 +56,10 @@ impl Generator {
         self.m_output.push_str("\tsyscall\n\t; Exit end call\n");
     }
     
-    fn generate_id(&mut self, var: &NodeVariableAssignement) {
+    fn generate_id(&mut self, var: &NodeVariableAssignment) {
         self.m_output.push_str("\t; VarAssignement\n");
         if let Token::ID {name, ..}  = &var.variable{
             self.m_output.push_str(&format!("\t; {var}\n"));
-            dbg!(format!("\t; {var}\n"));
             self.generate_arithmetic_expr(&var.value);
             self.m_id_names.insert(name.clone(), self.m_stack_size-1);
         }
@@ -105,27 +104,27 @@ impl Generator {
         match expr.clone().op{
             Token::Operator(op_type) => {
                 match op_type{
-                    Operator::Plus => {
+                    Operator::Plus { .. } => {
                         let instr_data = map.get(&"Addition".to_string()).unwrap();
                         self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Addition", instr_data);
                     }
-                    Operator::Minus => {
+                    Operator::Minus { .. } => {
                         let instr_data = map.get(&"Subtraction".to_string()).unwrap();
                         self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Subtraction" , instr_data);
                     }
-                    Operator::Multiplication => {
+                    Operator::Multiplication { .. }=> {
                         let instr_data = map.get(&"Multiplication".to_string()).unwrap();
                         self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Multiplication" , instr_data);
                     }
-                    Operator::Division => {
+                    Operator::Division { .. } => {
                         let instr_data = map.get(&"Division".to_string()).unwrap();
                         self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Division" , instr_data);
                     },
-                    Operator::Exponent => {
+                    Operator::Exponent { .. } => {
                         let instr_data = map.get(&"Exponentiation".to_string()).unwrap();
                         self.process_binary_operation(expr.clone().rhs, expr.clone().lhs, "Exponentiation" , instr_data);
                     }
-                    Operator::Modulus => {
+                    Operator::Modulus { .. } => {
                         let instr_data = map.get(&"Modulo".to_string()).unwrap();
                         self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Modulo" , instr_data);
                     }

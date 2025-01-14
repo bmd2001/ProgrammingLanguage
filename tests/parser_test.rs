@@ -1,4 +1,4 @@
-use BRS::compiler::parser::{NodeProgram, NodeStmt, NodeVariableAssignement, NodeArithmeticExpr, NodeBaseExpr, Parser};
+use BRS::compiler::parser::{NodeProgram, NodeStmt, NodeVariableAssignment, NodeArithmeticExpr, NodeBaseExpr, Parser};
 use BRS::compiler::tokenizer::{Token, Tokenizer};
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
@@ -61,11 +61,11 @@ fn test_variable_assignment_base(){
     let stmts = prog.get_stmts();
     assert_eq!(stmts.len(), 1);
     assert_eq!(stmts[0], NodeStmt::ID(
-        NodeVariableAssignement{
-            variable: Token::ID { name: "x".to_string(), span: (0, 0) }, 
+        NodeVariableAssignment{
+            variable: Token::ID { name: "x".to_string(), span: (0, (0, 0)) }, 
             value: NodeArithmeticExpr::Base(
                 NodeBaseExpr::Num(
-                    Token::Number {value: "0".to_string(),span: (0, 2)}
+                    Token::Number {value: "0".to_string(),span: (0, (2, 2))}
                 )
             )
         }
