@@ -9,5 +9,6 @@ Below is a diagram that shows all the steps of compilation: <br/>
 ## Correct Representation Arithmetic Equation Tree
 
 ![Arithmetic Expression Tree](https://www.plantuml.com/plantuml/png/NP7BQiGW58RtFiM1Cg17GgfcBfk1UO-IHQQHL6eqs5CwVVkE9GPCLl-5__0HRryq99fT6ETXOUJ8MtZ05JWtyYXGWmIkTFlyEY4EPydL9Hj-QemGo3MYQJe14jGhexW0HRX7eZZ3w99z9nS3mxSNxwOFkljlsyEL8SA3OKcdP6teGJBCqQ_rFlxqS7ZQx6CQmcJNEWUB2vyz8CFL9pjkBIAOJHrN1RgUjcqfb2wg-nTmhXcmPjYMe2xroQRSEHLXTjDcXuyrN5aKbFmtRpQCvLt-0000)
+
 *In this pictures, operation closest to the bottom of the tree will be executed first, from left to right. 
 To note the presence of higher precedence operators closer to the root node: this is caused by the presence of paranthesis.*
