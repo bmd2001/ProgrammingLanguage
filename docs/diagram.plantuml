@@ -1,0 +1,19 @@
+@startuml
+start
+:Read Source Code;
+if (Source Code Found?) then (yes)
+    :Parsing;
+    :Tokenizing;
+    :AST Generation;
+    if (Semantic Analysis Pass?) then (yes)
+      :Code Generation;
+      :Output Executable;
+    else (no)
+      :Report Syntax Errors;
+    endif
+    stop
+
+else (no)
+ :Report Error;
+stop
+@enduml
