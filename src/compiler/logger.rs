@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use ariadne::{Color, Fmt, Label, Report, ReportKind, Source};
+use ariadne::{Color, Label, Report, ReportKind, Source};
 
 pub trait Logger {
     fn new(file_name: String, code: String) -> Self;
@@ -14,8 +13,12 @@ pub struct ParserLogger{
 
 impl ParserLogger {
     pub fn log_errors(&self, errors: Vec<(ParserErrorType, (usize, (usize, usize)))>){
-        for (error, span) in errors {
-            self.log_error(error.message(), span)
+        // Check if the code is being run with a test profile
+        let is_test_profile = std::thread::current().name().map_or(false, |name| name.starts_with("test"));
+        if !is_test_profile {
+            for (error, span) in errors {
+                self.log_error(error.message(), span)
+            }
         }
     }
 }
@@ -51,10 +54,10 @@ impl Logger for ParserLogger{
     fn log_error(&self, message: &str, span: (usize, (usize, usize))) {
         let (line_i, (row_start, row_end)) = span;
         let offset = self.source.line(line_i).expect("Custom Span logic returned wrong line ID").offset();
-        Report::build(ReportKind::Error, (self.file_name.as_str(), offset+row_start..offset+row_end))
+        Report::build(ReportKind::Error, (self.file_name.as_str(), offset + row_start..offset + row_end))
             .with_message(message)
             .with_label(
-                Label::new((self.file_name.as_str(), offset+row_start..offset+row_end))
+                Label::new((self.file_name.as_str(), offset + row_start..offset + row_end))
                     .with_message(message)
                     .with_color(Color::Red),
             )
