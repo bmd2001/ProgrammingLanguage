@@ -128,6 +128,22 @@ impl Generator {
                         let instr_data = map.get(&"Modulo".to_string()).unwrap();
                         self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Modulo" , instr_data);
                     }
+                    Operator::And { .. } => {
+                        let instr_data = map.get(&"And".to_string()).unwrap();
+                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "And", instr_data);
+                    }
+                    Operator::Or { .. } => {
+                        let instr_data = map.get(&"Or".to_string()).unwrap();
+                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Or", instr_data);
+                    }
+                    Operator::Xor { .. } => {
+                        let instr_data = map.get(&"Xor".to_string()).unwrap();
+                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Xor", instr_data);
+                    }
+                    Operator::Not { .. } => {
+                        let instr_data = map.get(&"Not".to_string()).unwrap();
+                        self.process_unary_operation(expr.clone().lhs, instr_data);
+                    }
                     _ => {}
                 }
             }
@@ -136,7 +152,24 @@ impl Generator {
             }
         }
     }
-    
+
+    fn process_unary_operation(
+        &mut self,
+        operand: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>,
+        instruction_data: &((String, String), String, Vec<String>)
+    ) {
+        self.process_operand(operand);
+
+        self.pop("rax".to_string());
+
+        let instr_code = instruction_data.2.join("\n\t");
+        self.m_output.push_str("\t");
+        self.m_output.push_str(&instr_code);
+        self.m_output.push_str("\n");
+
+        self.push("rax");
+    }
+
     fn process_binary_operation(
         &mut self, 
         lhs: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>, 

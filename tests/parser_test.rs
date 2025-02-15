@@ -2,6 +2,7 @@ use BRS::compiler::parser::{NodeProgram, NodeStmt, NodeVariableAssignment, NodeA
 use BRS::compiler::tokenizer::{Token, Tokenizer};
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
+use either::{Left, Right};
 
 // A global mutable Tokenizer wrapped in a Mutex
 static TOKENIZER: Lazy<Mutex<Tokenizer>> = Lazy::new(|| {
@@ -87,4 +88,32 @@ fn test_wrong_variable_assignment(){
         let result = parser.parse();
         assert!(result.is_none(), "For input `{bad_var_input}`, the parser should fail but succeeded with: {:?}", result);
     }
+}
+
+#[test]
+fn test_logical_expression_parsing() {
+    let input = "x = a && b";
+    let mut parser = utility_create_parser(input);
+    let prog = parser.parse().expect("Parser should succeed for 'x = a && b'");
+    let stmts = prog.get_stmts();
+    assert_eq!(stmts.len(), 1, "Expected one statement");
+    
+    let ast_string = format!("{}", stmts[0]);
+    assert_eq!(ast_string, "x = a && b", "AST should correctly represent the logical expression");
+}
+
+#[test]
+fn test_missing_operand_logical() {
+    let input = "x = a &&";
+    let mut parser = utility_create_parser(input);
+    let result = parser.parse();
+    assert!(result.is_none(), "Parser should fail for missing operand in logical expression 'x = a &&'");
+}
+
+#[test]
+fn test_missing_operand_unary() {
+    let input = "x = !!";
+    let mut parser = utility_create_parser(input);
+    let result = parser.parse();
+    assert!(result.is_none(), "Parser should fail for missing operand in unary expression 'x = !!'");
 }

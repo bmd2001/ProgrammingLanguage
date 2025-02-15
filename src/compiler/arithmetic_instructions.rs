@@ -31,7 +31,15 @@ impl ArithmeticInstructions {
             "mov rax, 1", "{exp_label}:", "cmp rcx, 0", "je {done_label}", "imul rax, rdx", "dec rcx", "jmp {exp_label}", "{done_label}:"
             ])),
             ("Modulo".to_string(),
-            operation("rax","rbx", "rdx", vec!["xor rdx, rdx", "div rbx"]))
+            operation("rax","rbx", "rdx", vec!["xor rdx, rdx", "div rbx"])),
+            ("And".to_string(),
+            operation("rax", "rbx", "rax", vec!["and rax, rbx"])),
+            ("Or".to_string(),
+            operation("rax", "rbx", "rax", vec!["or rax, rbx"])),
+            ("Xor".to_string(),
+            operation("rax", "rbx", "rax", vec!["xor rax, rbx"])),
+            ("Not".to_string(),
+            operation("rax", "rbx", "rax", vec!["not rax"])),
             ]
         );
         ArithmeticInstructions{instrs: map}

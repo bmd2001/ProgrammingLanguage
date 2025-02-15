@@ -146,6 +146,11 @@ impl Parser {
                         let rhs = expr_stack.pop();
                         let lhs = expr_stack.pop();
 
+                        if lhs.is_none() || rhs.is_none() {
+                            self.report_error(ParserErrorType::ErrMissingOperand, Some(&token));
+                            return None;
+                        }
+
                         // Helper function to construct the operation
                         let create_operation = |lhs: NodeArithmeticExpr, rhs: NodeArithmeticExpr| {
 
@@ -349,6 +354,9 @@ impl Parser {
                 // TODO check for correct parenthesis mismatching detection
                 span = token.unwrap().get_span();
             }
+            ParserErrorType::ErrMissingOperand => {
+                span = token.unwrap().get_span();
+            }
         }
         self.m_errors.push((parser_error_type, span));
     }
@@ -450,6 +458,15 @@ impl fmt::Display for NodeBaseExpr {
             NodeBaseExpr::Num(Token::Number { value, .. }) => write!(f, "{}", value),
             NodeBaseExpr::ID(Token::ID { name, .. }) => write!(f, "{}", name),
             _ => write!(f, "Invalid base expression"),
+        }
+    }
+}
+
+impl fmt::Display for NodeStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NodeStmt::Exit(exit) => write!(f, "exit({})", exit.expr),
+            NodeStmt::ID(var_assign) => write!(f, "{}", var_assign),
         }
     }
 }
