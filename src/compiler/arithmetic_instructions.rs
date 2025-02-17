@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::compiler::architecture::{Arch, TARGET_ARCH};
 
 pub struct ArithmeticInstructions {
     instrs: HashMap<String, ((String, String), String, Vec<String>)>
@@ -17,21 +18,35 @@ impl ArithmeticInstructions {
                 instructions.into_iter().map(String::from).collect(),
                 )
         }
+
+        let (arith_reg_lhs, arith_reg_rhs, arith_result_reg) = match TARGET_ARCH {
+            Arch::X86_64 => ("rax", "rbx", "rax"),
+            Arch::AArch64 => ("x0", "x1", "x0"),
+        };
+
+        let (exp_reg_lhs, exp_reg_rhs, exp_result_reg) = match TARGET_ARCH {
+            Arch::X86_64 => ("rcx", "rdx", "rax"),
+            Arch::AArch64 => ("x1", "x2", "x0"),
+        };
+
+        let modulo_result_reg = match TARGET_ARCH {
+            Arch::X86_64 => "rdx",
+            Arch::AArch64 => "x0",
+        };
+
         let map = HashMap::from([
             ("Addition".to_string(),
-            operation("rax","rbx", "rax", vec!["add rax, rbx"])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_addition_instr()])),
             ("Subtraction".to_string(),
-            operation("rax","rbx", "rax", vec!["sub rax, rbx"])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_subtraction_instr()])),
             ("Multiplication".to_string(),
-            operation("rax","rbx", "rax", vec!["mul rbx"])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_multiplication_instr()])),
             ("Division".to_string(),
-            operation("rax","rbx", "rax", vec!["xor rdx, rdx", "div rbx"])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_division_instr()])),
             ("Exponentiation".to_string(),
-            operation("rcx","rdx", "rax", vec![
-            "mov rax, 1", "{exp_label}:", "cmp rcx, 0", "je {done_label}", "imul rax, rdx", "dec rcx", "jmp {exp_label}", "{done_label}:"
-            ])),
+            operation(exp_reg_lhs, exp_reg_rhs, exp_result_reg, vec![TARGET_ARCH.get_exponentiation_instr()])),
             ("Modulo".to_string(),
-            operation("rax","rbx", "rdx", vec!["xor rdx, rdx", "div rbx"]))
+            operation(arith_reg_lhs, arith_reg_rhs, modulo_result_reg, vec![TARGET_ARCH.get_modulo_instr()]))
             ]
         );
         ArithmeticInstructions{instrs: map}

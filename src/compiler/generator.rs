@@ -2,6 +2,7 @@ use std::any::type_name;
 use std::collections::HashMap;
 use either::Either;
 use either::Either::{Left, Right};
+use crate::compiler::architecture::TARGET_ARCH;
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::arithmetic_instructions::{ArithmeticInstructions};
@@ -30,13 +31,15 @@ impl Generator {
     
     pub fn generate(&mut self){
         self.m_output.clear();
-        self.m_output.push_str("global _start\n_start:\n");
+        self.m_output.push_str(TARGET_ARCH.get_program_header());
         let stmts = self.m_prog.stmts.clone();
         for stmt in stmts {
             self.generate_stmt(&stmt);
         }
-        if !self.m_output.contains("syscall"){
-            self.m_output.push_str("\t; Boiler plate for empty script\n\tmov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall\n");
+        if !self.m_output.contains(TARGET_ARCH.get_exit_marker()){
+            self.m_output.push_str("\t; Boiler plate for empty script\n");
+            self.m_output.push_str(TARGET_ARCH.get_exit_instr());
+            self.m_output.push_str("\n");
         }
     }
     
@@ -51,9 +54,10 @@ impl Generator {
         self.m_output.push_str("\t; Exit call \n");
         self.m_output.push_str(&format!("\t; Exit Code = {}\n", exit.expr));
         self.generate_arithmetic_expr(&exit.expr);
-        self.m_output.push_str("\tmov rax, 0x2000001\n");
-        self.pop("rdi".to_string());
-        self.m_output.push_str("\tsyscall\n\t; Exit end call\n");
+        self.pop(TARGET_ARCH.get_exit_reg().to_string());
+        self.m_output.push_str("\n");
+        self.m_output.push_str(TARGET_ARCH.get_exit_instr());
+        self.m_output.push_str("\n\t; Exit end call\n");
     }
     
     fn generate_id(&mut self, var: &NodeVariableAssignment) {
@@ -75,24 +79,33 @@ impl Generator {
     fn generate_base_expr(&mut self, p_expr: &NodeBaseExpr){
         match p_expr {
             NodeBaseExpr::Num(token) => {
-                if let Token::Number { value, .. } = token{
-                    self.m_output.push_str(&format!("\tmov rax, {value}\n"));
-                    self.push("rax")
+                if let Token::Number { value, .. } = token {
+                    self.m_output.push_str(&format!("\t{}\n", TARGET_ARCH.get_mov_number_instr(value)));
+                    if cfg!(target_arch = "x86_64") {
+                        self.push("rax");
+                    } else if cfg!(target_arch = "aarch64") {
+                        self.push("x0");
+                    }
                 } else {
-                    eprintln!("Wrong Tokenization")
+                    eprintln!("Wrong Tokenization");
                 }
             }
             NodeBaseExpr::ID(token) => {
                 if let Token::ID { name, .. } = token {
                     if let Some(stack_loc) = self.m_id_names.get(name) {
-                        let offset = self.m_stack_size.checked_sub(1 + *(stack_loc)).expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
-                        self.m_output.push_str(&format!("\t; Recuperate {name}'s value from stack\n\tmov rax, [rsp + {}]\n", offset * 8)); // Assuming 8-byte stack slots
-                        self.push("rax");
+                        let offset = self.m_stack_size.checked_sub(1 + *(stack_loc))
+                            .expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
+                        self.m_output.push_str(&format!("\t; Recuperate {name}'s value from stack\n\t{}\n", TARGET_ARCH.get_load_variable_instr(offset)));
+                        if cfg!(target_arch = "x86_64") {
+                            self.push("rax");
+                        } else if cfg!(target_arch = "aarch64") {
+                            self.push("x0");
+                        }
                     } else {
                         eprintln!("Variable {name} not defined");
                     }
                 } else {
-                    eprintln!("Wrong Tokenization")
+                    eprintln!("Wrong Tokenization");
                 }
             }
         }
@@ -190,14 +203,22 @@ impl Generator {
     }
     
     fn push(&mut self, reg: &str) {
-        self.m_output.push_str(format!("\tpush {reg}\n").as_str());
+        if cfg!(target_arch = "x86_64") {
+            self.m_output.push_str(&format!("\tpush {}\n", reg));
+        } else if cfg!(target_arch = "aarch64") {
+            self.m_output.push_str(&format!("\tsub sp, sp, #8\n\tstr {}, [sp]\n", reg));
+        }
         self.m_stack_size += 1;
     }
     
     fn pop(&mut self, reg: String) {
-        self.m_output.push_str(format!("\tpop {reg}\n").as_str());
+        if cfg!(target_arch = "x86_64") {
+            self.m_output.push_str(&format!("\tpop {}\n", reg));
+        } else if cfg!(target_arch = "aarch64") {
+            self.m_output.push_str(&format!("\tldr {}, [sp]\n\tadd sp, sp, #8\n", reg));
+        }
         self.m_stack_size -= 1;
-    }
+    }    
     
     fn generate_exponential_labels(&mut self) -> (String, String){
         let result = (format!("exponential{}", self.num_exponentials), format!("exp_done{}", self.num_exponentials));

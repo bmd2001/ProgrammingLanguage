@@ -237,7 +237,7 @@ impl Operator {
         match self {
             Operator::Plus { .. } | Operator::Minus { .. } => {0}
             Operator::Multiplication { .. } | Operator::Division { .. } | Operator::Modulus { .. } => {1}
-            Operator::OpenParenthesis { .. } | Operator::ClosedParenthesis { .. } | Operator::Exponent { .. } => {2}
+            Operator::OpenParenthesis { .. } | Operator::ClosedParenthesis { .. } | Operator::Exponent{ .. } => {2}
         }
     }
 

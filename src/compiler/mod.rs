@@ -1,6 +1,7 @@
 pub mod tokenizer;
 pub mod parser;
 pub mod generator;
+mod architecture;
 mod arithmetic_instructions;
 pub mod logger;
 
