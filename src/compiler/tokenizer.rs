@@ -84,6 +84,12 @@ impl Tokenizer {
             "exit" => Some(Token::Exit {span : self.get_span(buf.len())}),
             "**" => Some(Token::Operator(Operator::Exponent {span : self.get_span(buf.len())})),
             "//" => Some(Token::Operator(Operator::Division {span : self.get_span(buf.len())})),
+            "&&" => Some(Token::Operator(Operator::And { span: self.get_span(buf.len()) })),
+            "||" => Some(Token::Operator(Operator::Or { span: self.get_span(buf.len()) })),
+            "!!" => Some(Token::Operator(Operator::Not { span: self.get_span(buf.len()) })),
+            "^|" => Some(Token::Operator(Operator::Xor { span: self.get_span(buf.len()) })),
+            "true" => Some(Token::Boolean { value: true, span: self.get_span(buf.len()) }),
+            "false" => Some(Token::Boolean { value: false, span: self.get_span(buf.len()) }),
             _ => {
                 if let Some(token) = self.tokenize_primary_expr(buf, input){
                     Some(token)
@@ -139,6 +145,7 @@ impl Tokenizer {
 pub enum Token {
     ID { name: String, span: (usize, (usize, usize)) },
     Number { value: String, span: (usize, (usize, usize)) },
+    Boolean { value: bool, span: (usize, (usize, usize)) },
     Exit {span: (usize, (usize, usize))},
     OpenParen {span: (usize, (usize, usize))},
     CloseParen {span: (usize, (usize, usize))},
@@ -157,6 +164,10 @@ pub enum Operator {
     Division {span: (usize, (usize, usize))},
     Exponent {span: (usize, (usize, usize))},
     Modulus {span: (usize, (usize, usize))},
+    And {span: (usize, (usize, usize))},
+    Or {span: (usize, (usize, usize))},
+    Xor {span: (usize, (usize, usize))},
+    Not {span: (usize, (usize, usize))},
     OpenParenthesis {span: (usize, (usize, usize))},
     ClosedParenthesis {span: (usize, (usize, usize))}
 }
@@ -166,6 +177,7 @@ impl Token {
         match self {
             Token::ID { span, .. }
             | Token::Number { span, .. }
+            | Token::Boolean { span, .. }
             | Token::Exit { span }
             | Token::OpenParen { span }
             | Token::CloseParen { span }
@@ -190,6 +202,10 @@ impl Operator {
             | Operator::Division { span }
             | Operator::Exponent { span }
             | Operator::Modulus { span }
+            | Operator::And { span }
+            | Operator::Or { span }
+            | Operator::Xor { span }
+            | Operator::Not { span }
             | Operator::OpenParenthesis { span }
             | Operator::ClosedParenthesis { span } => *span,
         }
@@ -206,6 +222,10 @@ impl fmt::Display for Operator {
             Operator::Division { span: _ } => "/",
             Operator::Exponent { span: _ } => "^",
             Operator::Modulus { span: _ } => "%",
+            Operator::And { .. } => "&&",
+            Operator::Or { .. } => "||",
+            Operator::Xor { .. } => "^|",
+            Operator::Not { .. } => "!!",
             Operator::OpenParenthesis { span: _ } => "(",
             Operator::ClosedParenthesis { span: _ } => ")"
 
@@ -235,15 +255,16 @@ impl fmt::Display for Token {
 impl Operator {
     pub fn precedence(self) -> usize {
         match self {
-            Operator::Plus { .. } | Operator::Minus { .. } => {0}
+            Operator::Plus { .. } | Operator::Minus { .. } | Operator::And { .. } | Operator::Or { .. } | Operator::Xor { .. } => {0}
             Operator::Multiplication { .. } | Operator::Division { .. } | Operator::Modulus { .. } => {1}
-            Operator::OpenParenthesis { .. } | Operator::ClosedParenthesis { .. } | Operator::Exponent{ .. } => {2}
+            Operator::OpenParenthesis { .. } | Operator::ClosedParenthesis { .. } | Operator::Exponent { .. } => {2}
+            Operator::Not { .. } => 3
         }
     }
 
     pub fn associativity(self) -> String {
         match self{
-            Operator::Exponent { .. } => {"Right".to_string()}
+            Operator::Exponent { .. } | Operator::Not { .. } => {"Right".to_string()}
             _ => {"Left".to_string()}
         }
     }

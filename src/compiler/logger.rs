@@ -30,7 +30,9 @@ pub enum ParserErrorType{
     ErrExitClosedParenthesisMissing,
     ErrUnexpectedToken,
     ErrExpressionOpenParenthesisMissing,
-    ErrExpressionClosedParenthesisMissing
+    ErrExpressionClosedParenthesisMissing,
+    ErrMissingOperand,
+    ErrTypeMismatch,
 }
 
 impl ParserErrorType {
@@ -42,6 +44,8 @@ impl ParserErrorType {
             ParserErrorType::ErrUnexpectedToken => "Unexpected character sequence found here.",
             ParserErrorType::ErrExpressionOpenParenthesisMissing => "Mismatched Parenthesis: ( is missing",
             ParserErrorType::ErrExpressionClosedParenthesisMissing => "Mismatched Parenthesis: ) is missing",
+            ParserErrorType::ErrMissingOperand => "Missing operand for operator.",
+            ParserErrorType::ErrTypeMismatch => "Type mismatch in expression.",
         }
     }
 }

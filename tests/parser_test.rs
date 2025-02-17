@@ -88,3 +88,48 @@ fn test_wrong_variable_assignment(){
         assert!(result.is_none(), "For input `{bad_var_input}`, the parser should fail but succeeded with: {:?}", result);
     }
 }
+
+#[test]
+fn test_missing_operand_logical() {
+    let input = "x = a &&";
+    let mut parser = utility_create_parser(input);
+    let result = parser.parse();
+    assert!(result.is_none(), "Parser should fail for missing operand in logical expression 'x = a &&'");
+}
+
+#[test]
+fn test_missing_operand_unary() {
+    let input = "x = !!";
+    let mut parser = utility_create_parser(input);
+    let result = parser.parse();
+    assert!(result.is_none(), "Parser should fail for missing operand in unary expression 'x = !!'");
+}
+
+#[test]
+fn test_boolean_expression_parsing() {
+    let input = "x = true";
+    let mut parser = utility_create_parser(input);
+    let prog = parser.parse().expect("Parser should succeed for 'x = true'");
+    let stmts = prog.get_stmts();
+    assert_eq!(stmts.len(), 1, "Expected one statement");
+
+    let ast_string = format!("{}", stmts[0]);
+    assert_eq!(ast_string, "x = true", "AST should correctly represent the boolean expression");
+}
+
+#[test]
+fn test_valid_boolean_logical_expression() {
+    let input = "x = true && false";
+    let mut parser = utility_create_parser(input);
+    let prog = parser.parse().expect("Parser should succeed for a boolean logical expression");
+    let ast_string = format!("{}", prog.get_stmts()[0]);
+    assert_eq!(ast_string, "x = true && false", "AST should correctly represent the boolean logical expression");
+}
+
+#[test]
+fn test_invalid_logical_expression_non_boolean_operand() {
+    let input = "x = 1 && true";
+    let mut parser = utility_create_parser(input);
+    let result = parser.parse();
+    assert!(result.is_none(), "Parser should fail when non-boolean operand is used with a logical operator");
+}

@@ -99,6 +99,21 @@ impl Parser {
             None => {None}
         }
     }
+
+    fn type_check_logical_operands(&self, lhs: &NodeArithmeticExpr, rhs: &NodeArithmeticExpr) -> Result<(), String> {
+        // A helper function to check if an expression is a boolean literal.
+        fn is_boolean(expr: &NodeArithmeticExpr) -> bool {
+            match expr {
+                NodeArithmeticExpr::Base(NodeBaseExpr::Bool(_)) => true,
+                _ => false,
+            }
+        }
+        if is_boolean(lhs) && is_boolean(rhs) {
+            Ok(())
+        } else {
+            Err("Logical operators can only be applied to booleans".to_string())
+        }
+    }
     
     fn parse_variable_assignment(&mut self) -> Option<NodeVariableAssignment>{
         if let Some(tokens) = self.peek_range(3, true){
@@ -142,9 +157,30 @@ impl Parser {
                     Token::Number { .. } => {
                         expr_stack.push(NodeArithmeticExpr::Base(NodeBaseExpr::Num(token.clone())));
                     },
-                    Token::Operator(..) => {
+                    Token::Boolean { .. } => {
+                        expr_stack.push(NodeArithmeticExpr::Base(NodeBaseExpr::Bool(token.clone())));
+                    },
+                    Token::Operator(ref op_token) => {
                         let rhs = expr_stack.pop();
                         let lhs = expr_stack.pop();
+
+                        if lhs.is_none() || rhs.is_none() {
+                            self.report_error(ParserErrorType::ErrMissingOperand, Some(&token));
+                            return None;
+                        }
+
+                        // For logical operators, make sure that both operands are booleans.
+                        match op_token {
+                            Operator::And { .. } | Operator::Or { .. } | Operator::Xor { .. } => {
+                                if let (Some(ref lhs_expr), Some(ref rhs_expr)) = (lhs.as_ref(), rhs.as_ref()) {
+                                    if let Err(err) = self.type_check_logical_operands(lhs_expr, rhs_expr) {
+                                        self.report_error(ParserErrorType::ErrTypeMismatch, Some(&token));
+                                        return None;
+                                    }
+                                }
+                            },
+                            _ => {}
+                        }
 
                         // Helper function to construct the operation
                         let create_operation = |lhs: NodeArithmeticExpr, rhs: NodeArithmeticExpr| {
@@ -194,7 +230,7 @@ impl Parser {
         let mut polish: VecDeque<Token> = VecDeque::new();
         while let Some(token) = self.peek(0) {
             match token{
-                Token::ID { .. } | Token::Number { .. } => {
+                Token::ID { .. } | Token::Number { .. } | Token::Boolean { .. } => {
                     polish.push_back(token.clone());
                 }
                 Token::OpenParen {span} => {
@@ -246,6 +282,7 @@ impl Parser {
         match token {
             Token::ID { .. } => {Ok(NodeBaseExpr::ID(token.clone()))}
             Token::Number { .. } => {Ok(NodeBaseExpr::Num(token.clone()))}
+            Token::Boolean { .. } => {Ok(NodeBaseExpr::Bool(token.clone()))}
             _ => {Err("The parsed token was not an Identifier or a Number".to_string())}
         }
     }
@@ -349,6 +386,12 @@ impl Parser {
                 // TODO check for correct parenthesis mismatching detection
                 span = token.unwrap().get_span();
             }
+            ParserErrorType::ErrMissingOperand => {
+                span = token.unwrap().get_span();
+            }
+            ParserErrorType::ErrTypeMismatch => {
+                span = token.unwrap().get_span();
+            }
         }
         self.m_errors.push((parser_error_type, span));
     }
@@ -393,7 +436,8 @@ pub(crate) struct NodeArithmeticOperation {
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeBaseExpr {
     Num(Token),
-    ID(Token)
+    ID(Token),
+    Bool(Token),
 }
 
 impl NodeProgram{
@@ -449,7 +493,17 @@ impl fmt::Display for NodeBaseExpr {
         match self {
             NodeBaseExpr::Num(Token::Number { value, .. }) => write!(f, "{}", value),
             NodeBaseExpr::ID(Token::ID { name, .. }) => write!(f, "{}", name),
+            NodeBaseExpr::Bool(Token::Boolean { value, .. }) => write!(f, "{}", value),
             _ => write!(f, "Invalid base expression"),
+        }
+    }
+}
+
+impl fmt::Display for NodeStmt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            NodeStmt::Exit(exit) => write!(f, "exit({})", exit.expr),
+            NodeStmt::ID(var_assign) => write!(f, "{}", var_assign),
         }
     }
 }

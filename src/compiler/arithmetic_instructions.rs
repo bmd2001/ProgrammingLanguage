@@ -46,7 +46,15 @@ impl ArithmeticInstructions {
             ("Exponentiation".to_string(),
             operation(exp_reg_lhs, exp_reg_rhs, exp_result_reg, vec![TARGET_ARCH.get_exponentiation_instr()])),
             ("Modulo".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, modulo_result_reg, vec![TARGET_ARCH.get_modulo_instr()]))
+            operation(arith_reg_lhs, arith_reg_rhs, modulo_result_reg, vec![TARGET_ARCH.get_modulo_instr()])),
+            ("And".to_string(),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_and_instr()])),
+            ("Or".to_string(),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_or_instr()])),
+            ("Xor".to_string(),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_xor_instr()])),
+            ("Not".to_string(),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_not_instr()])),
             ]
         );
         ArithmeticInstructions{instrs: map}

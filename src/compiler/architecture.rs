@@ -119,6 +119,17 @@ impl Arch {
         }
     }
 
+    pub fn get_mov_boolean_instr(&self, value: bool) -> String {
+        match self {
+            Arch::X86_64 => {
+                if value { "mov rax, 1".to_string() } else { "mov rax, 0".to_string() }
+            },
+            Arch::AArch64 => {
+                if value { "mov x0, 1".to_string() } else { "mov x0, 0".to_string() }
+            },
+        }
+    }
+
     pub fn get_load_variable_instr(&self, offset: usize) -> String {
         match self {
             Arch::X86_64 => format!("mov rax, [rsp + {}]", offset * 8),

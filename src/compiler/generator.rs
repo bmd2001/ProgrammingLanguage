@@ -6,7 +6,7 @@ use crate::compiler::architecture::TARGET_ARCH;
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::arithmetic_instructions::{ArithmeticInstructions};
-
+use crate::compiler::logger::ParserErrorType;
 
 fn type_name_of<T>(_: &T) -> &'static str {
     type_name::<T>()
@@ -108,6 +108,18 @@ impl Generator {
                     eprintln!("Wrong Tokenization");
                 }
             }
+            NodeBaseExpr::Bool(token) => {
+                if let Token::Boolean { value, .. } = token {
+                    self.m_output.push_str(&format!("\t{}\n", TARGET_ARCH.get_mov_boolean_instr(*value)));
+                    if cfg!(target_arch = "x86_64") {
+                        self.push("rax");
+                    } else if cfg!(target_arch = "aarch64") {
+                        self.push("x0");
+                    }
+                } else {
+                    eprintln!("Wrong Tokenization");
+                }
+            }
         }
     }
 
@@ -141,6 +153,31 @@ impl Generator {
                         let instr_data = map.get(&"Modulo".to_string()).unwrap();
                         self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Modulo" , instr_data);
                     }
+                    Operator::Not { .. } => {
+                        let instr_data = map.get(&"Not".to_string()).unwrap();
+                        self.process_unary_operation(expr.clone().lhs, instr_data);
+                    }
+                    Operator::And { .. } | Operator::Or { .. } | Operator::Xor { .. } => {
+                        if let (Some(lhs_expr), Some(rhs_expr)) = (Self::extract_expr(&expr.lhs), Self::extract_expr(&expr.rhs)) {
+                            if let Err(err) = self.type_check_logical_operands(&lhs_expr, &rhs_expr) {
+                                eprintln!("Error: {}", err);
+                                return;
+                            }
+                        } else {
+                            eprintln!("Error: Missing operand for logical operator");
+                            return;
+                        }
+
+                        let op_str = match expr.op {
+                            Token::Operator(Operator::And { .. }) => "And",
+                            Token::Operator(Operator::Or { .. })  => "Or",
+                            Token::Operator(Operator::Xor { .. }) => "Xor",
+                            _ => unreachable!(),
+                        };
+
+                        let instr_data = map.get(&op_str.to_string()).unwrap();
+                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, op_str, instr_data);
+                    }
                     _ => {}
                 }
             }
@@ -148,6 +185,23 @@ impl Generator {
                 eprintln!("{}", format!("Wrong Tokenization. Expecting an operator but got {}", type_name_of(&expr.op)))
             }
         }
+    }
+
+    fn process_unary_operation(
+        &mut self,
+        operand: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>,
+        instruction_data: &((String, String), String, Vec<String>)
+    ) {
+        self.process_operand(operand);
+
+        self.pop("rax".to_string());
+
+        let instr_code = instruction_data.2.join("\n\t");
+        self.m_output.push_str("\t");
+        self.m_output.push_str(&instr_code);
+        self.m_output.push_str("\n");
+
+        self.push("rax");
     }
     
     fn process_binary_operation(
@@ -181,7 +235,7 @@ impl Generator {
         self.push_pop((reg1.clone(), reg2.clone()), res_reg, &*process_instruction(exp_label, done_label, instr));
     }
 
-    fn process_operand (
+    fn process_operand(
         &mut self,
         operand: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>
     ) {
@@ -195,7 +249,7 @@ impl Generator {
         }
     }
 
-    fn push_pop (&mut self, pop_regs: (String, String), res_reg: &str, instruction: &str){
+    fn push_pop(&mut self, pop_regs: (String, String), res_reg: &str, instruction: &str){
         self.pop(pop_regs.1);
         self.pop(pop_regs.0);
         self.m_output.push_str(instruction);
@@ -224,6 +278,30 @@ impl Generator {
         let result = (format!("exponential{}", self.num_exponentials), format!("exp_done{}", self.num_exponentials));
         self.num_exponentials += 1;
         result
+    }
+
+    fn extract_expr(e: &Either<Box<NodeArithmeticOperation>, NodeBaseExpr>) -> Option<NodeArithmeticExpr> {
+        match e {
+            Right(base) => Some(NodeArithmeticExpr::Base(base.clone())),
+            Left(op) => Some(NodeArithmeticExpr::Operation((**op).clone())),
+        }
+    }
+
+    fn type_check_logical_operands(&self, lhs: &NodeArithmeticExpr, rhs: &NodeArithmeticExpr) -> Result<(), String> {
+        if self.infer_type(lhs) == "bool" && self.infer_type(rhs) == "bool" {
+            Ok(())
+        } else {
+            Err("Logical operators can only be applied to booleans".to_string())
+        }
+    }
+
+    fn infer_type(&self, expr: &NodeArithmeticExpr) -> &str {
+        match expr {
+            NodeArithmeticExpr::Base(NodeBaseExpr::Bool(_)) => "bool",
+            NodeArithmeticExpr::Base(NodeBaseExpr::Num(_)) => "num",
+            NodeArithmeticExpr::Base(NodeBaseExpr::ID(_)) => "unknown",
+            NodeArithmeticExpr::Operation(_) => "unknown",
+        }
     }
 
 }
