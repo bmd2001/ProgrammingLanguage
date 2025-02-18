@@ -133,3 +133,17 @@ fn test_invalid_logical_expression_non_boolean_operand() {
     let result = parser.parse();
     assert!(result.is_none(), "Parser should fail when non-boolean operand is used with a logical operator");
 }
+
+#[test]
+fn test_scope(){
+    let input = "{x = 0\nexit(x)}";
+    let mut parser = utility_create_parser(input);
+    let prog = parser.parse().expect(&format!("For input {}, the parser should not fail", input));
+    let stmts = prog.get_stmts();
+    assert_eq!(stmts.len(), 1, "Expected one statement, found {}", stmts.len());
+    let scope = match &stmts[0] {
+        NodeStmt::Scope(s) => s,
+        _ => panic!("Expected a scope statement, found {:?}", stmts[0])
+    };
+    assert_eq!(scope.stmts.len(), 2, "Expected 2 statements in the scope, found {}", scope.stmts.len());
+}
