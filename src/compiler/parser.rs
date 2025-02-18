@@ -72,7 +72,7 @@ impl Parser {
             return None;
         }
         // Check if the second token is an opening parenthesis
-        if !matches!(self.peek(1), Some(Token::OpenParen { .. })) {
+        if !matches!(self.peek(1), Some(Token::OpenBracket { .. })) {
             let token = self.peek(0).unwrap();
             self.report_error(ParserErrorType::ErrExitOpenParenthesisMissing, Some(&token.clone()));
             return None;
@@ -84,7 +84,7 @@ impl Parser {
         let expr = self.parse_arithmetic_expr();
 
         // Check for closing parenthesis
-        if !matches!(self.peek(0), Some(Token::CloseParen {..})) {
+        if !matches!(self.peek(0), Some(Token::ClosedBracket {..})) {
             self.report_error(ParserErrorType::ErrExitClosedParenthesisMissing, None);
             return None;
         }
@@ -233,10 +233,10 @@ impl Parser {
                 Token::ID { .. } | Token::Number { .. } | Token::Boolean { .. } => {
                     polish.push_back(token.clone());
                 }
-                Token::OpenParen {span} => {
+                Token::OpenBracket {span} => {
                     stack.push(Operator::OpenParenthesis { span: *span })
                 }
-                Token::CloseParen {..} => {
+                Token::ClosedBracket {..} => {
                     if self.peek(1).is_some() && !matches!(self.peek(1), Some(Token::NewLine {..})) {
                         while !matches!(stack.last(), Some(Operator::OpenParenthesis {..})) {
                             if stack.is_empty() {
@@ -270,7 +270,7 @@ impl Parser {
         }
         while let Some(i) = stack.pop(){
             if let Operator::OpenParenthesis { span } = i{
-                self.report_error(ParserErrorType::ErrExpressionClosedParenthesisMissing, Some(&Token::OpenParen { span }));
+                self.report_error(ParserErrorType::ErrExpressionClosedParenthesisMissing, Some(&Token::OpenBracket { span }));
                 return None;
             }
             polish.push_back(Token::Operator(i));

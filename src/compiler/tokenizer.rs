@@ -62,8 +62,10 @@ impl Tokenizer {
     
     fn match_ch(&mut self, ch: char, peek: Option<&char>) -> Option<Token> {
         match ch {
-            '(' => Some(Token::OpenParen { span: (self.m_line, (self.m_row, self.m_row)) }),
-            ')' => Some(Token::CloseParen { span: (self.m_line, (self.m_row, self.m_row)) }),
+            '(' => Some(Token::OpenBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
+            ')' => Some(Token::ClosedBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
+            '{' => Some(Token::OpenCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
+            '}' => Some(Token::OpenCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             '=' => Some(Token::Equals { span: (self.m_line, (self.m_row, self.m_row)) }),
             ' ' => Some(Token::WhiteSpace { span: (self.m_line, (self.m_row, self.m_row)) }),
             '+' => Some(Token::Operator(Operator::Plus { span: (self.m_line, (self.m_row, self.m_row)) })),
@@ -147,8 +149,10 @@ pub enum Token {
     Number { value: String, span: (usize, (usize, usize)) },
     Boolean { value: bool, span: (usize, (usize, usize)) },
     Exit {span: (usize, (usize, usize))},
-    OpenParen {span: (usize, (usize, usize))},
-    CloseParen {span: (usize, (usize, usize))},
+    OpenBracket {span: (usize, (usize, usize))},
+    ClosedBracket {span: (usize, (usize, usize))},
+    OpenCurlyBracket {span: (usize, (usize, usize))},
+    ClosedCurlyBracket {span: (usize, (usize, usize))},
     Equals {span: (usize, (usize, usize))},
     Operator(Operator),
     WhiteSpace {span: (usize, (usize, usize))},
@@ -179,8 +183,10 @@ impl Token {
             | Token::Number { span, .. }
             | Token::Boolean { span, .. }
             | Token::Exit { span }
-            | Token::OpenParen { span }
-            | Token::CloseParen { span }
+            | Token::OpenBracket { span }
+            | Token::ClosedBracket { span }
+            | Token::OpenCurlyBracket { span }
+            | Token::ClosedCurlyBracket { span }
             | Token::Equals { span }
             | Token::WhiteSpace { span }
             | Token::NewLine { span } => *span,
@@ -241,8 +247,10 @@ impl fmt::Display for Token {
             Token::ID { name, span } => write!(f, "ID({}, {:?})", name, span),
             Token::Number { value, span } => write!(f, "Number({}, {:?})", value, span),
             Token::Exit { .. } => write!(f, "exit()"),
-            Token::OpenParen { .. } => write!(f, "("),
-            Token::CloseParen { .. } => write!(f, ")"),
+            Token::OpenBracket { .. } => write!(f, "("),
+            Token::ClosedBracket { .. } => write!(f, ")"),
+            Token::OpenCurlyBracket { .. } => write!(f, "{{"),
+            Token::ClosedCurlyBracket { .. } => write!(f, "}}"),
             Token::Equals {..} => write!(f, "="),
             Token::Operator(op) => write!(f, "{}", op),
             Token::WhiteSpace {..} => write!(f, "\\s"),
