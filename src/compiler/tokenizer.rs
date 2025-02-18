@@ -65,7 +65,7 @@ impl Tokenizer {
             '(' => Some(Token::OpenBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             ')' => Some(Token::ClosedBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             '{' => Some(Token::OpenCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
-            '}' => Some(Token::OpenCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
+            '}' => Some(Token::ClosedCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             '=' => Some(Token::Equals { span: (self.m_line, (self.m_row, self.m_row)) }),
             ' ' => Some(Token::WhiteSpace { span: (self.m_line, (self.m_row, self.m_row)) }),
             '+' => Some(Token::Operator(Operator::Plus { span: (self.m_line, (self.m_row, self.m_row)) })),
@@ -253,8 +253,8 @@ impl fmt::Display for Token {
             Token::ClosedCurlyBracket { .. } => write!(f, "}}"),
             Token::Equals {..} => write!(f, "="),
             Token::Operator(op) => write!(f, "{}", op),
-            Token::WhiteSpace {..} => write!(f, "\\s"),
-            Token::NewLine {..} => write!(f, "NewLine"),
+            Token::WhiteSpace {..} => write!(f, " "),
+            Token::NewLine {..} => write!(f, "\n"),
             _ => {write!(f, "err")}
         }
     }

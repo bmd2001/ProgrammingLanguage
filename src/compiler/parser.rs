@@ -23,11 +23,11 @@ impl Parser {
                 match self.parse_stmt() {
                     Some(stmt) => {
                         prog.stmts.push(stmt);
-                        self.advance(1, true);
                     },
                     None => {}
                 }
             }
+            self.advance_next_stmt();
         }
         if self.m_errors.len() > 0 {
             self.m_logger.log_errors(self.m_errors.clone());
@@ -40,7 +40,6 @@ impl Parser {
         while !matches!(self.peek(offset), None) && !matches!(self.peek(offset), Some(Token::NewLine {..})){
             if matches!(self.peek(offset), Some(Token::Err { .. })){
                 self.report_error(ParserErrorType::ErrUnexpectedToken, Some(&self.peek(offset).unwrap().clone()));
-                self.advance_next_stmt();
                 return true;
             }
             offset += 1;
@@ -63,10 +62,8 @@ impl Parser {
             let token = self.peek(0).unwrap();
             self.report_error(ParserErrorType::ErrInvalidStatement, Some(&token.clone()));
             return None;
-        } else {
-            self.advance_next_stmt();
-            return None;
         }
+        else { None }
     }
     
     fn parse_exit(&mut self) -> Option<NodeExit>{
@@ -81,7 +78,7 @@ impl Parser {
             return None;
         }
         // Advance past 'exit' and '(' tokens
-        self.advance(2, false);
+        self.advance(2, "", false);
 
         // Parse the arithmetic expression
         let expr = self.parse_arithmetic_expr();
@@ -93,7 +90,12 @@ impl Parser {
         }
 
         // Advance past the closing parenthesis
-        self.advance(1, false);
+        self.advance(1, "", false);
+        
+        while !matches!(self.peek(0), Some(Token::NewLine {..}) | None){
+            self.report_error(ParserErrorType::ErrUnexpectedToken, None);
+            self.advance(1, " ", false);
+        }
 
         // Return the parsed NodeExit
         match expr{
@@ -125,7 +127,7 @@ impl Parser {
                 ref id @ Token::ID { .. },           // First token: Identifier
                 Token::Equals { .. },            // Second token: Equals
                 ] => {
-                    self.advance(2, true);
+                    self.advance(2, " ", true);
                     match self.parse_arithmetic_expr() {
                         Some(expr) => {
                             Some(NodeVariableAssignment {
@@ -269,7 +271,7 @@ impl Parser {
                     self.report_error(ParserErrorType::ErrUnexpectedToken, None);
                 },
             }
-            self.advance(1, true);
+            self.advance(1, " ", true);
         }
         while let Some(i) = stack.pop(){
             if let Operator::OpenParenthesis { span } = i{
@@ -295,16 +297,17 @@ impl Parser {
             return None;
         }
         let jump_back = &self.m_tokens[self.m_index].get_span();
-        
-        self.advance(1, true);
+        self.advance(1, "", false);
+        self.advance_next_stmt();
         let mut stmts = Vec::new();
         while !matches!(self.peek(0), Some(Token::ClosedCurlyBracket { .. })) && !matches!(self.peek(0), None) {
             if let Some(stmt) = self.parse_stmt() {
                 stmts.push(stmt);
             }
+            self.advance_next_stmt();
         }
         if let Some(Token::ClosedCurlyBracket { .. }) = self.peek(0) {
-            self.advance(1, false);
+            self.advance(1, "", false);
             return Some(NodeScope { stmts })
         }
         self.report_error(ParserErrorType::ErrScopeClosesCurlyBracketMissing, Some(&Token::OpenCurlyBracket { span: *jump_back }));
@@ -352,34 +355,34 @@ impl Parser {
     }
 
 
-    fn advance(&mut self, step: usize, inc_space: bool) {
-        if !inc_space{
-            self.m_index = usize::min(self.m_index + step, self.m_tokens.len());
+    fn advance_next_stmt(&mut self){
+        if self.m_tokens.len() != self.m_index {
+            self.advance(1, " \n", false);
+            self.m_index -= 1;
         }
-        else {
-            let mut counter = 0;
-            let mut offset = 0;
+    }
 
-            while self.m_index + offset < self.m_tokens.len() {
-                let token = &self.m_tokens[self.m_index + offset];
-                if counter < step && !matches!(token, Token::WhiteSpace {..}){
-                    counter += 1;
-                } else if !matches!(token, Token::WhiteSpace {..}){
+    fn advance(&mut self, step: usize, skip_chars: &str, skip_end: bool) {
+        if skip_chars == ""{
+            self.m_index = usize::min(self.m_index + step, self.m_tokens.len());
+        } else {
+            let mut num_valid_chars = 0;
+            let mut index_offset = 0;
+
+            while self.m_index + index_offset < self.m_tokens.len() {
+                let token = &self.m_tokens[self.m_index + index_offset];
+                let token_str = token.to_string();
+                if num_valid_chars < step && !skip_chars.contains(&token_str){
+                    num_valid_chars += 1;
+                } else if num_valid_chars >= step && (!skip_end || !skip_chars.contains(&token.to_string())) {
                     break;
                 }
-                offset += 1;
+                index_offset += 1;
             }
-            self.m_index = usize::min(self.m_index + offset, self.m_tokens.len());
+            self.m_index = usize::min(self.m_index + index_offset, self.m_tokens.len());
         }
     }
-    
-    fn advance_next_stmt(&mut self){
-        while !matches!(self.peek(0), Some(Token::NewLine { .. })) && !matches!(self.peek(0), None){
-            self.advance(1, false);
-        }
-        self.advance(1, true);
-    }
-    
+
     fn report_error(&mut self, parser_error_type: ParserErrorType, token: Option<&Token>){
         let mut span : (usize, (usize, usize)) = (0, (0, 0));
         match parser_error_type {

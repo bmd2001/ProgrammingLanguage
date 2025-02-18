@@ -6,7 +6,8 @@ $$
     \langle\:\text{StmtList}\:\rangle \to 
     \begin{cases} 
         \langle\:\text{Stmt}\:\rangle \\ 
-        \langle\:\text{StmtList}\:\rangle\langle\:\text{Stmt}\:\rangle
+        \langle\:\text{StmtList}\:\rangle\texttt{"\n"}\langle\:\text{Stmt}\:\rangle \\
+        \{ \langle\:\text{StmtList}\:\rangle \}
     \end{cases}\\
     \langle\:\text{Stmt}\:\rangle \to 
     \begin{cases}
@@ -32,7 +33,11 @@ $$
         + \\
         - \\
         \wedge \\
-        \%
+        \% \\
+        \&\& \\
+        || \\
+        !! \\
+        \wedge|
     \end{cases}
 \end{gather}
 $$

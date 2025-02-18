@@ -107,6 +107,7 @@ impl Arch {
 
     pub fn get_exit_instr(&self) -> &str {
         match self {
+            //Todo To call an exit syscall, the value loaded into rax changes between Linux and MacOS
             Arch::X86_64 => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
             Arch::AArch64 => "mov x8, 93\n\tmov x0, 0\n\tsvc #0",
         }
