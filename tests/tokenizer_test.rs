@@ -69,7 +69,7 @@ fn test_variable_with_numbers(){
 #[test]
 fn test_multiline_input() {
     let mut tokenizer = TOKENIZER.lock().unwrap();
-    tokenizer.tokenize("x = 0\nexit(x)");
+    tokenizer.tokenize("x = 0\nexit(x)\n{}");
 
     let expected_token = vec!(
         Token::ID{ name: "x".to_string(), span: (0, (0, 0)) },
@@ -81,7 +81,10 @@ fn test_multiline_input() {
         Token::Exit { span: (1, (0, 3)) },
         Token::OpenBracket { span: (1, (4, 4))},
         Token::ID { name: "x".to_string(), span: (1, (5, 5)) },
-        Token::ClosedBracket { span: (1, (6, 6)) }
+        Token::ClosedBracket { span: (1, (6, 6)) },
+        Token::NewLine { span: (1, (7, 7))},
+        Token::OpenCurlyBracket { span: (2, (0, 0))},
+        Token::ClosedCurlyBracket { span: (2, (1, 1))},
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
 }

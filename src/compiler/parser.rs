@@ -91,7 +91,7 @@ impl Parser {
 
         // Advance past the closing parenthesis
         self.advance(1, "", false);
-        
+
         while !matches!(self.peek(0), Some(Token::NewLine {..}) | None){
             self.report_error(ParserErrorType::ErrUnexpectedToken, None);
             self.advance(1, " ", false);
@@ -356,7 +356,10 @@ impl Parser {
 
 
     fn advance_next_stmt(&mut self){
-        if self.m_tokens.len() != self.m_index {
+        while !matches!(self.peek(0), Some(Token::NewLine{..}) | None){
+            self.advance(1, " ", false);
+        }
+        if !matches!(self.peek(0), None) {
             self.advance(1, " \n", false);
             self.m_index -= 1;
         }
