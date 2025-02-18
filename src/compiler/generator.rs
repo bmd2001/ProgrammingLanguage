@@ -46,7 +46,8 @@ impl Generator {
     fn generate_stmt(&mut self, stmt: &NodeStmt) {
         match stmt {
             NodeStmt::Exit(exit) => self.generate_exit(exit),
-            NodeStmt::ID(var) => self.generate_id(var)
+            NodeStmt::ID(var) => self.generate_id(var),
+            NodeStmt::Scope(_) => todo!()
         }
     }
     

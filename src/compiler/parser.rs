@@ -18,7 +18,7 @@ impl Parser {
 
     pub fn parse(&mut self) -> Option<NodeProgram>{
         let mut prog = NodeProgram { stmts: Vec::new() };
-        while let Some(token) = self.peek(0) {
+        while let Some(..) = self.peek(0) {
             if !self.err_token_present() {
                 match self.parse_stmt() {
                     Some(stmt) => {
@@ -56,6 +56,9 @@ impl Parser {
         else if let Some(variable_assignment) = self.parse_variable_assignment(){
             Some(NodeStmt::ID(variable_assignment))
         }
+        else if let Some(scope_node) = self.parse_scope(){ 
+            Some(NodeStmt::Scope(scope_node))
+        }
         else if prev_len == self.m_errors.len(){
             let token = self.peek(0).unwrap();
             self.report_error(ParserErrorType::ErrInvalidStatement, Some(&token.clone()));
@@ -74,7 +77,7 @@ impl Parser {
         // Check if the second token is an opening parenthesis
         if !matches!(self.peek(1), Some(Token::OpenBracket { .. })) {
             let token = self.peek(0).unwrap();
-            self.report_error(ParserErrorType::ErrExitOpenParenthesisMissing, Some(&token.clone()));
+            self.report_error(ParserErrorType::ErrExitOpenBracketMissing, Some(&token.clone()));
             return None;
         }
         // Advance past 'exit' and '(' tokens
@@ -85,7 +88,7 @@ impl Parser {
 
         // Check for closing parenthesis
         if !matches!(self.peek(0), Some(Token::ClosedBracket {..})) {
-            self.report_error(ParserErrorType::ErrExitClosedParenthesisMissing, None);
+            self.report_error(ParserErrorType::ErrExitClosedBracketMissing, None);
             return None;
         }
 
@@ -240,7 +243,7 @@ impl Parser {
                     if self.peek(1).is_some() && !matches!(self.peek(1), Some(Token::NewLine {..})) {
                         while !matches!(stack.last(), Some(Operator::OpenParenthesis {..})) {
                             if stack.is_empty() {
-                                self.report_error(ParserErrorType::ErrExpressionOpenParenthesisMissing, Some(&token.clone()));
+                                self.report_error(ParserErrorType::ErrExpressionOpenBracketMissing, Some(&token.clone()));
                                 return None;
                             }
                             let op = stack.pop().unwrap();
@@ -270,7 +273,7 @@ impl Parser {
         }
         while let Some(i) = stack.pop(){
             if let Operator::OpenParenthesis { span } = i{
-                self.report_error(ParserErrorType::ErrExpressionClosedParenthesisMissing, Some(&Token::OpenBracket { span }));
+                self.report_error(ParserErrorType::ErrExpressionClosedBracketMissing, Some(&Token::OpenBracket { span }));
                 return None;
             }
             polish.push_back(Token::Operator(i));
@@ -285,6 +288,27 @@ impl Parser {
             Token::Boolean { .. } => {Ok(NodeBaseExpr::Bool(token.clone()))}
             _ => {Err("The parsed token was not an Identifier or a Number".to_string())}
         }
+    }
+    
+    fn parse_scope(&mut self) -> Option<NodeScope>{
+        if !matches!(self.peek(0), Some(Token::OpenCurlyBracket { .. })){
+            return None;
+        }
+        let jump_back = &self.m_tokens[self.m_index].get_span();
+        
+        self.advance(1, true);
+        let mut stmts = Vec::new();
+        while !matches!(self.peek(0), Some(Token::ClosedCurlyBracket { .. })) && !matches!(self.peek(0), None) {
+            if let Some(stmt) = self.parse_stmt() {
+                stmts.push(stmt);
+            }
+        }
+        if let Some(Token::ClosedCurlyBracket { .. }) = self.peek(0) {
+            self.advance(1, false);
+            return Some(NodeScope { stmts })
+        }
+        self.report_error(ParserErrorType::ErrScopeClosesCurlyBracketMissing, Some(&Token::OpenCurlyBracket { span: *jump_back }));
+        None
     }
     
     fn peek(& self, offset: usize) -> Option<&Token> {
@@ -367,22 +391,22 @@ impl Parser {
                 } else { self.m_tokens[self.m_index-1].clone().get_span() };
                 span = (stmt_num, (0, stmt_end+1));
             }
-            ParserErrorType::ErrExitOpenParenthesisMissing => {
+            ParserErrorType::ErrExitOpenBracketMissing => {
                 if let Some(Token::Exit {span: (exit_line, (_, exit_end))}) = token{
                     span = (*exit_line, (*exit_end, *exit_end))
                 }
             }
-            ParserErrorType::ErrExitClosedParenthesisMissing => {
+            ParserErrorType::ErrExitClosedBracketMissing => {
                 let token = self.m_tokens[self.m_index-1].clone();
                 span = token.get_span();
             }
             ParserErrorType::ErrUnexpectedToken => {
                 span = token.unwrap().get_span();
             }
-            ParserErrorType::ErrExpressionOpenParenthesisMissing => {
+            ParserErrorType::ErrExpressionOpenBracketMissing => {
                 span = token.unwrap().get_span();
             }
-            ParserErrorType::ErrExpressionClosedParenthesisMissing => {
+            ParserErrorType::ErrExpressionClosedBracketMissing => {
                 // TODO check for correct parenthesis mismatching detection
                 span = token.unwrap().get_span();
             }
@@ -391,7 +415,8 @@ impl Parser {
             }
             ParserErrorType::ErrTypeMismatch => {
                 span = token.unwrap().get_span();
-            }
+            },
+            ParserErrorType::ErrScopeClosesCurlyBracketMissing => todo!()
         }
         self.m_errors.push((parser_error_type, span));
     }
@@ -406,7 +431,8 @@ pub struct NodeProgram{
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeStmt {
     Exit(NodeExit),
-    ID(NodeVariableAssignment)
+    ID(NodeVariableAssignment),
+    Scope(NodeScope)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -418,6 +444,11 @@ pub struct NodeExit {
 pub struct NodeVariableAssignment {
     pub variable: Token,
     pub value: NodeArithmeticExpr
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NodeScope {
+    pub stmts: Vec<NodeStmt>
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeArithmeticExpr {
@@ -504,6 +535,13 @@ impl fmt::Display for NodeStmt {
         match self {
             NodeStmt::Exit(exit) => write!(f, "exit({})", exit.expr),
             NodeStmt::ID(var_assign) => write!(f, "{}", var_assign),
+            NodeStmt::Scope(scope) => {
+                write!(f, "{{")?;
+                for stmt in &scope.stmts {
+                    write!(f, "{}", stmt)?;
+                }
+                write!(f, "}}")
+            },
         }
     }
 }
