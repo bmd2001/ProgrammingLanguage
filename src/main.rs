@@ -4,6 +4,7 @@ use std::fs;
 use std::env;
 use std::process::Command;
 use crate::compiler::Compiler;
+use std::path::Path;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -11,22 +12,25 @@ fn main() {
         eprintln!("Usage: BRS <file.brs>");
         std::process::exit(1);
     }
-    
-    let file_path = args[1].as_str();
-    let mut out_dir : &String = &String::from("./");
 
-    if args.contains(&"--outdir".to_string()){
-        let out_id = args.iter().position(|s| s == "--outdir").unwrap()+1;
-        if let Some(dir) = args.get(out_id) {
-            out_dir = dir;
+    let file = Path::new(&args[1]); // No need for `as_str()`
+
+    let mut out_dir = String::from("./");
+
+    if let Some(out_id) = args.iter().position(|s| s == "--outdir") {
+        if let Some(dir) = args.get(out_id + 1) {
+            out_dir = dir.clone(); // Use owned string to avoid borrowing issues
         }
     }
-    let out_asm_file: &String = &(out_dir.to_owned() + &*file_path.replace(".brs", ".asm"));
-    let out_o_file : &String = &(out_dir.to_owned() + &*file_path.replace(".brs", ".o"));
-    println!("In file {file_path}");
-    println!("Out file {out_asm_file}");
-    println!("Out file {out_o_file}");
 
+    let file_path = file.file_name().unwrap().to_str().unwrap();
+    let out_asm_file = format!("{}{}", out_dir, file_path.replace(".brs", ".asm"));
+    let out_o_file = format!("{}{}", out_dir, file_path.replace(".brs", ".o"));
+
+    println!("In file {}", file_path);
+    println!("Out file {}", out_asm_file);
+    println!("Out file {}", out_o_file);
+    
     let contents = fs::read_to_string(file_path)
         .expect("Should have been able to read the file");
 
