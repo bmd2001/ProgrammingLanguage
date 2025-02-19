@@ -78,7 +78,7 @@ impl Parser {
             return None;
         }
         // Advance past 'exit' and '(' tokens
-        self.advance(2, "", false);
+        self.advance(2);
 
         // Parse the arithmetic expression
         let expr = self.parse_arithmetic_expr();
@@ -90,12 +90,7 @@ impl Parser {
         }
 
         // Advance past the closing parenthesis
-        self.advance(1, "", false);
-
-        while !matches!(self.peek(0), Some(Token::NewLine {..}) | None){
-            self.report_error(ParserErrorType::ErrUnexpectedToken, None);
-            self.advance(1, " ", false);
-        }
+        self.advance(1);
 
         // Return the parsed NodeExit
         match expr{
@@ -127,7 +122,7 @@ impl Parser {
                 ref id @ Token::ID { .. },           // First token: Identifier
                 Token::Equals { .. },            // Second token: Equals
                 ] => {
-                    self.advance(2, " ", true);
+                    self.advance_skip_tokens(2, true, |token| matches!(token, Some(Token::WhiteSpace {..})));
                     match self.parse_arithmetic_expr() {
                         Some(expr) => {
                             Some(NodeVariableAssignment {
@@ -242,7 +237,8 @@ impl Parser {
                     stack.push(Operator::OpenParenthesis { span: *span })
                 }
                 Token::ClosedBracket {..} => {
-                    if self.peek(1).is_some() && !matches!(self.peek(1), Some(Token::NewLine {..})) {
+                    //TODO This check is cumbersome. We want to know if we're creating a polish notation for a variable assignment or an exit call. An exit call is expected to have a CloseBracket
+                    if !matches!(self.peek(1), Some(Token::NewLine {..}) | Some(Token::ClosedCurlyBracket {..})) {
                         while !matches!(stack.last(), Some(Operator::OpenParenthesis {..})) {
                             if stack.is_empty() {
                                 self.report_error(ParserErrorType::ErrExpressionOpenBracketMissing, Some(&token.clone()));
@@ -271,7 +267,7 @@ impl Parser {
                     self.report_error(ParserErrorType::ErrUnexpectedToken, None);
                 },
             }
-            self.advance(1, " ", true);
+            self.advance_skip_tokens(1, true, |token| matches!(token, Some(Token::WhiteSpace {..})));
         }
         while let Some(i) = stack.pop(){
             if let Operator::OpenParenthesis { span } = i{
@@ -297,17 +293,19 @@ impl Parser {
             return None;
         }
         let jump_back = &self.m_tokens[self.m_index].get_span();
-        self.advance(1, "", false);
         self.advance_next_stmt();
         let mut stmts = Vec::new();
+        //TODO Rewrite this section (from while to the if after)
         while !matches!(self.peek(0), Some(Token::ClosedCurlyBracket { .. })) && !matches!(self.peek(0), None) {
             if let Some(stmt) = self.parse_stmt() {
                 stmts.push(stmt);
             }
-            self.advance_next_stmt();
+            if !matches!(self.peek(0), Some(Token::ClosedCurlyBracket { .. })){
+                self.advance_next_stmt();
+            }
         }
         if let Some(Token::ClosedCurlyBracket { .. }) = self.peek(0) {
-            self.advance(1, "", false);
+            self.advance(1);
             return Some(NodeScope { stmts })
         }
         self.report_error(ParserErrorType::ErrScopeClosesCurlyBracketMissing, Some(&Token::OpenCurlyBracket { span: *jump_back }));
@@ -356,33 +354,50 @@ impl Parser {
 
 
     fn advance_next_stmt(&mut self){
-        while !matches!(self.peek(0), Some(Token::NewLine{..}) | None){
-            self.advance(1, " ", false);
-        }
-        if !matches!(self.peek(0), None) {
-            self.advance(1, " \n", false);
-            self.m_index -= 1;
+        let skipping_predicate: fn(Option<&Token>) -> bool =
+            |token| matches!(token, Some(Token::WhiteSpace {..})) 
+                || matches!(token, Some(Token::NewLine {..}));
+        if matches!(self.peek(0), Some(Token::OpenCurlyBracket {..})) {
+            self.advance(1);
+            self.advance_skip_head(skipping_predicate);
+        } else if skipping_predicate(self.peek(0)){
+            let whitespace_skip_predicate : fn(Option<&Token>) -> bool = |token| matches!(token, Some(Token::WhiteSpace {..}));
+            self.advance_skip_head(whitespace_skip_predicate);
+            while !matches!(self.peek(0), Some(Token::NewLine {..}) | None | Some(Token::ClosedCurlyBracket {..})){
+                self.report_error(ParserErrorType::ErrUnexpectedToken, None);
+                self.advance_skip_tokens(1, false, whitespace_skip_predicate);
+            }
+            self.advance_skip_head(skipping_predicate);
+        } else {
+            self.advance_skip_tokens(1, false, skipping_predicate);   
         }
     }
 
-    fn advance(&mut self, step: usize, skip_chars: &str, skip_end: bool) {
-        if skip_chars == ""{
-            self.m_index = usize::min(self.m_index + step, self.m_tokens.len());
-        } else {
-            let mut num_valid_chars = 0;
-            let mut index_offset = 0;
+    fn advance(&mut self, step: usize){
+        self.m_index = usize::min(self.m_index + step, self.m_tokens.len());
+    }
 
-            while self.m_index + index_offset < self.m_tokens.len() {
-                let token = &self.m_tokens[self.m_index + index_offset];
-                let token_str = token.to_string();
-                if num_valid_chars < step && !skip_chars.contains(&token_str){
-                    num_valid_chars += 1;
-                } else if num_valid_chars >= step && (!skip_end || !skip_chars.contains(&token.to_string())) {
-                    break;
-                }
-                index_offset += 1;
+    fn advance_skip_head<F>(&mut self, skipping_predicate: F)
+    where F: Fn(Option<&Token>) -> bool
+    {
+        while skipping_predicate(self.peek(0)) {
+            self.m_index += 1;
+        }
+    }
+
+    fn advance_skip_tokens<F>(&mut self, step: usize, skip_tail: bool, skipping_predicate: F)
+    where F: Fn(Option<&Token>) -> bool + Copy
+    {
+        let mut num_valid_chars_passed = 0;
+        self.advance_skip_head(skipping_predicate);
+        while num_valid_chars_passed != step && self.m_index < self.m_tokens.len(){
+            if !skipping_predicate(self.peek(0)){
+                num_valid_chars_passed += 1;
             }
-            self.m_index = usize::min(self.m_index + index_offset, self.m_tokens.len());
+            self.m_index += 1;
+        }
+        if skip_tail{
+            self.advance_skip_head(skipping_predicate);
         }
     }
 
