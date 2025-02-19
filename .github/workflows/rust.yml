@@ -33,18 +33,29 @@ jobs:
         with:
           target: ${{ matrix.rust_target }}
 
+      - name: Install build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt update && sudo apt install -y build-essential gcc
+
       - name: Install dependencies (Linux aarch64)
         if: matrix.arch == 'aarch64' && matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update
           sudo apt install -y gcc-aarch64-linux-gnu
-          
+
+      - name: Install Xcode Command Line Tools (macOS)
+        if: runner.os == 'macOS'
+        run: xcode-select --install || true
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.rust_target }}
+
       - name: Run
         run: | 
-          cargo build --target ${{ matrix.rust_target }} --color=always --profile dev
+          cargo build --target ${{ matrix.rust_target }} --color=always --verbose --profile dev
           cargo run test.brs --target ${{ matrix.rust_target }} --verbose -- --outdir ../../target/debug/
-          ./../../target/debug/out
+          ./target/${{ matrix.rust_target }}/debug/out
       - name: Test
         run: |
-          cargo build --color=always --no-run --tests --profile test
+          cargo build --color=always --no-run --verbose --tests --profile test
           cargo test --target ${{ matrix.rust_target }} --verbose --tests
