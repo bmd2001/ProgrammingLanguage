@@ -41,10 +41,10 @@ jobs:
           
       - name: Run
         run: | 
-          cargo build --target ${{ matrix.rust_target }} --color=always --message-format=json-diagnostic-rendered-ansi --profile dev
+          cargo build --target ${{ matrix.rust_target }} --color=always --profile dev
           cargo run test.brs --target ${{ matrix.rust_target }} --verbose -- --outdir ../../target/debug/
           ./../../target/debug/out
       - name: Test
         run: |
-          cargo build --color=always --message-format=json-diagnostic-rendered-ansi --no-run --tests --profile test
+          cargo build --color=always --no-run --tests --profile test
           cargo test --target ${{ matrix.rust_target }} --verbose --tests
