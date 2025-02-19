@@ -26,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -39,11 +39,12 @@ jobs:
           sudo apt update
           sudo apt install -y gcc-aarch64-linux-gnu
           
-      - name: Build executable
-        run: cargo build --target ${{ matrix.rust_target }} --verbose
       - name: Run
-        run: run test.brs --target ${{ matrix.rust_target }} --verbose -- --outdir ../../target/debug/
-      - name: Test executable
-        run: ./../../target/debug/out
-      - name: Run tests
-        run: cargo test --target ${{ matrix.rust_target }} --verbose --tests
+        run: | 
+          cargo build --target ${{ matrix.rust_target }} --color=always --message-format=json-diagnostic-rendered-ansi --no-run --verbose --profile dev
+          cargo run test.brs --target ${{ matrix.rust_target }} --verbose -- --outdir ../../target/debug/
+          ./../../target/debug/out
+      - name: Test
+        run: |
+          cargo build --color=always --message-format=json-diagnostic-rendered-ansi --no-run --tests --profile test
+          cargo test --target ${{ matrix.rust_target }} --verbose --tests
