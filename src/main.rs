@@ -23,22 +23,22 @@ fn main() {
         }
     }
 
-    let file_path = file.file_name().unwrap().to_str().unwrap();
-    let out_asm_file = format!("{}{}", out_dir, file_path.replace(".brs", ".asm"));
-    let out_o_file = format!("{}{}", out_dir, file_path.replace(".brs", ".o"));
+    let file_name = file.file_name().unwrap().to_str().unwrap();
+    let out_asm_file = format!("{}{}", out_dir, file_name.replace(".brs", ".asm"));
+    let out_o_file = format!("{}{}", out_dir, file_name.replace(".brs", ".o"));
 
-    println!("In file {}", file_path);
+    println!("In file {}", file.to_str().unwrap());
     println!("Out file {}", out_asm_file);
     println!("Out file {}", out_o_file);
     
-    let contents = fs::read_to_string(file_path)
+    let contents = fs::read_to_string(file)
         .expect("Should have been able to read the file");
 
     println!("With text:\n{contents}");
     let assembly: Option<String>;
     {
         let mut compiler = Compiler::new();
-        assembly = compiler.compile(file_path, contents.as_str());
+        assembly = compiler.compile(file.to_str().unwrap(), contents.as_str());
     }
     match assembly {
         Some(assembly_code) => {
