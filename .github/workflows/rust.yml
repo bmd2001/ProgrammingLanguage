@@ -63,5 +63,5 @@ jobs:
           cargo run .github/workflows/run.brs --target ${{ matrix.rust_target }} --verbose -- --outdir target/${{ matrix.rust_target }}/debug/
       - name: Test
         run: |
-          cargo build --color=always --no-run --verbose --tests --profile test
+          cargo build --color=always --verbose --tests --profile test
           cargo test --target ${{ matrix.rust_target }} --verbose --tests
