@@ -6,13 +6,14 @@ pub struct Tokenizer {
 
     m_tokens : Vec<Token>,
     m_line: usize,
-    m_row: usize
+    m_row: usize,
+    m_exit_bracket_depth: usize
 }
 
 impl Tokenizer {
 
     pub fn new() -> Self {
-        Tokenizer { m_tokens: Vec::new(), m_line: 0, m_row: 0}
+        Tokenizer { m_tokens: Vec::new(), m_line: 0, m_row: 0, m_exit_bracket_depth: 0}
     }
 
     pub fn get_tokens(&self) -> Vec<Token> {
@@ -62,8 +63,27 @@ impl Tokenizer {
     
     fn match_ch(&mut self, ch: char, peek: Option<&char>) -> Option<Token> {
         match ch {
-            '(' => Some(Token::OpenBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
-            ')' => Some(Token::ClosedBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
+            '(' => {
+                if self.m_exit_bracket_depth == 0{
+                    return Some(Token::Operator(Operator::OpenBracket { span: (self.m_line, (self.m_row, self.m_row)) }))
+                }
+                else if self.m_exit_bracket_depth == 1 {
+                    self.m_exit_bracket_depth += 1;
+                    return Some(Token::OpenBracket { span: (self.m_line, (self.m_row, self.m_row)) })
+                }
+                self.m_exit_bracket_depth += 1;
+                Some(Token::Operator(Operator::OpenBracket { span: (self.m_line, (self.m_row, self.m_row)) }))
+            },
+            ')' => {
+                if self.m_exit_bracket_depth > 0 {
+                    self.m_exit_bracket_depth -= 1;
+                    if self.m_exit_bracket_depth == 1{
+                        self.m_exit_bracket_depth = 0;
+                        return Some(Token::ClosedBracket { span: (self.m_line, (self.m_row, self.m_row)) })
+                    }
+                }
+                Some(Token::Operator(Operator::ClosedBracket { span: (self.m_line, (self.m_row, self.m_row)) }))
+            },
             '{' => Some(Token::OpenCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             '}' => Some(Token::ClosedCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             '=' => Some(Token::Equals { span: (self.m_line, (self.m_row, self.m_row)) }),
@@ -76,14 +96,19 @@ impl Tokenizer {
                     None
                 } else {Some(Token::Operator(Operator::Multiplication { span: (self.m_line, (self.m_row, self.m_row)) }))}
             },
-            '\n' => { Some(Token::NewLine { span: (self.m_line, (self.m_row, self.m_row)) })}
+            '\n' => {
+                Some(Token::NewLine { span: (self.m_line, (self.m_row, self.m_row)) })
+            }
             _ => {None}
         }
     }
 
     fn check_buf(&mut self, buf : &String, input: &Peekable<Chars>) -> Option<Token> {
         match buf.as_str() {
-            "exit" => Some(Token::Exit {span : self.get_span(buf.len())}),
+            "exit" => {
+                self.m_exit_bracket_depth += 1;
+                Some(Token::Exit {span : self.get_span(buf.len())})
+            },
             "**" => Some(Token::Operator(Operator::Exponent {span : self.get_span(buf.len())})),
             "//" => Some(Token::Operator(Operator::Division {span : self.get_span(buf.len())})),
             "&&" => Some(Token::Operator(Operator::And { span: self.get_span(buf.len()) })),
@@ -133,6 +158,7 @@ impl Tokenizer {
     fn handle_newline(&mut self){
         self.m_line += 1;
         self.m_row = 0;
+        self.m_exit_bracket_depth = 0;
     }
     
     fn get_span(&mut self, length: usize) -> (usize, (usize, usize)){
@@ -172,8 +198,8 @@ pub enum Operator {
     Or {span: (usize, (usize, usize))},
     Xor {span: (usize, (usize, usize))},
     Not {span: (usize, (usize, usize))},
-    OpenParenthesis {span: (usize, (usize, usize))},
-    ClosedParenthesis {span: (usize, (usize, usize))}
+    OpenBracket {span: (usize, (usize, usize))},
+    ClosedBracket {span: (usize, (usize, usize))}
 }
 
 impl Token {
@@ -212,8 +238,8 @@ impl Operator {
             | Operator::Or { span }
             | Operator::Xor { span }
             | Operator::Not { span }
-            | Operator::OpenParenthesis { span }
-            | Operator::ClosedParenthesis { span } => *span,
+            | Operator::OpenBracket { span }
+            | Operator::ClosedBracket { span } => *span,
         }
     }
 }
@@ -232,8 +258,8 @@ impl fmt::Display for Operator {
             Operator::Or { .. } => "||",
             Operator::Xor { .. } => "^|",
             Operator::Not { .. } => "!!",
-            Operator::OpenParenthesis { span: _ } => "(",
-            Operator::ClosedParenthesis { span: _ } => ")"
+            Operator::OpenBracket { span: _ } => "(",
+            Operator::ClosedBracket { span: _ } => ")"
 
         };
         write!(f, "{}", symbol)
@@ -265,7 +291,7 @@ impl Operator {
         match self {
             Operator::Plus { .. } | Operator::Minus { .. } | Operator::And { .. } | Operator::Or { .. } | Operator::Xor { .. } => {0}
             Operator::Multiplication { .. } | Operator::Division { .. } | Operator::Modulus { .. } => {1}
-            Operator::OpenParenthesis { .. } | Operator::ClosedParenthesis { .. } | Operator::Exponent { .. } => {2}
+            Operator::OpenBracket { .. } | Operator::ClosedBracket { .. } | Operator::Exponent { .. } => {2}
             Operator::Not { .. } => 3
         }
     }

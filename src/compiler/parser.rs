@@ -232,35 +232,36 @@ impl Parser {
             match token{
                 Token::ID { .. } | Token::Number { .. } | Token::Boolean { .. } => {
                     polish.push_back(token.clone());
-                }
-                Token::OpenBracket {span} => {
-                    stack.push(Operator::OpenParenthesis { span: *span })
-                }
-                Token::ClosedBracket {..} => {
-                    //TODO This check is cumbersome. We want to know if we're creating a polish notation for a variable assignment or an exit call. An exit call is expected to have a CloseBracket
-                    if !matches!(self.peek(1), Some(Token::NewLine {..}) | Some(Token::ClosedCurlyBracket {..})) {
-                        while !matches!(stack.last(), Some(Operator::OpenParenthesis {..})) {
-                            if stack.is_empty() {
-                                self.report_error(ParserErrorType::ErrExpressionOpenBracketMissing, Some(&token.clone()));
-                                return None;
-                            }
-                            let op = stack.pop().unwrap();
-                            polish.push_back(Token::Operator(op))
-                        }
-                        stack.pop();
-                    } else {break;}
-                }
-                Token::Operator(op) => {
-                    while let Some(operator) = stack.pop() {
-                        if matches!(operator, Operator::OpenParenthesis {..}) || (operator.precedence() <= op.clone().precedence() && (operator.precedence() != op.clone().precedence() || op.clone().associativity().eq("Right"))){
-                            stack.push(operator);
-                            break;
-                        }
-                        polish.push_back(Token::Operator(operator));
-                    }
-                    stack.push(op.clone());
                 },
-                Token::NewLine {..} => {
+                Token::Operator(op) => {
+                    match op{
+                        Operator::OpenBracket { .. } => {
+                            stack.push(*op);
+                        }
+                        Operator::ClosedBracket { .. } => {
+                            while !matches!(stack.last(), Some(Operator::OpenBracket {..})) {
+                                if stack.is_empty() {
+                                    self.report_error(ParserErrorType::ErrExpressionOpenBracketMissing, Some(&token.clone()));
+                                    return None;
+                                }
+                                let op = stack.pop().unwrap();
+                                polish.push_back(Token::Operator(op))
+                            }
+                            stack.pop();
+                        }
+                        _ => {
+                            while let Some(operator) = stack.pop() {
+                                if matches!(operator, Operator::OpenBracket {..}) || (operator.precedence() <= op.clone().precedence() && (operator.precedence() != op.clone().precedence() || op.clone().associativity().eq("Right"))){
+                                    stack.push(operator);
+                                    break;
+                                }
+                                polish.push_back(Token::Operator(operator));
+                            }
+                            stack.push(*op);
+                        }
+                    }
+                },
+                Token::NewLine {..} | Token::ClosedBracket {..} => {
                     break;
                 }
                 _ => {
@@ -270,7 +271,7 @@ impl Parser {
             self.advance_skip_tokens(1, true, |token| matches!(token, Some(Token::WhiteSpace {..})));
         }
         while let Some(i) = stack.pop(){
-            if let Operator::OpenParenthesis { span } = i{
+            if let Operator::OpenBracket { span } = i{
                 self.report_error(ParserErrorType::ErrExpressionClosedBracketMissing, Some(&Token::OpenBracket { span }));
                 return None;
             }
