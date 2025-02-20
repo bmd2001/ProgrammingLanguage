@@ -27,7 +27,7 @@ impl Parser {
                     None => {}
                 }
             }
-            self.advance_next_stmt();
+            self.advance_next_stmt(true);
         }
         if self.m_errors.len() > 0 {
             self.m_logger.log_errors(self.m_errors.clone());
@@ -279,22 +279,13 @@ impl Parser {
         }
         Some(polish)
     }
-
-    fn parse_base_expr(&mut self, token: Token) -> Result<NodeBaseExpr, String> {
-        match token {
-            Token::ID { .. } => {Ok(NodeBaseExpr::ID(token.clone()))}
-            Token::Number { .. } => {Ok(NodeBaseExpr::Num(token.clone()))}
-            Token::Boolean { .. } => {Ok(NodeBaseExpr::Bool(token.clone()))}
-            _ => {Err("The parsed token was not an Identifier or a Number".to_string())}
-        }
-    }
     
     fn parse_scope(&mut self) -> Option<NodeScope>{
         if !matches!(self.peek(0), Some(Token::OpenCurlyBracket { .. })){
             return None;
         }
         let jump_back = &self.m_tokens[self.m_index].get_span();
-        self.advance_next_stmt();
+        self.advance_next_stmt(true);
         let mut stmts = Vec::new();
         //TODO Rewrite this section (from while to the if after)
         while !matches!(self.peek(0), Some(Token::ClosedCurlyBracket { .. })) && !matches!(self.peek(0), None) {
@@ -302,7 +293,7 @@ impl Parser {
                 stmts.push(stmt);
             }
             if !matches!(self.peek(0), Some(Token::ClosedCurlyBracket { .. })){
-                self.advance_next_stmt();
+                self.advance_next_stmt(true);
             }
         }
         if let Some(Token::ClosedCurlyBracket { .. }) = self.peek(0) {
@@ -343,18 +334,8 @@ impl Parser {
         }
         None
     }
-    
-    fn expect_token(&mut self, token_type: &Token, avoid_space: bool) -> bool {
-        if avoid_space {
-        }
-        if let Some(token) = self.peek(0){
-            return matches!(token_type, token);
-        }
-        false
-    }
 
-
-    fn advance_next_stmt(&mut self){
+    fn advance_next_stmt(&mut self, report: bool){
         let skipping_predicate: fn(Option<&Token>) -> bool =
             |token| matches!(token, Some(Token::WhiteSpace {..})) 
                 || matches!(token, Some(Token::NewLine {..}));
@@ -365,7 +346,7 @@ impl Parser {
             let whitespace_skip_predicate : fn(Option<&Token>) -> bool = |token| matches!(token, Some(Token::WhiteSpace {..}));
             self.advance_skip_head(whitespace_skip_predicate);
             while !matches!(self.peek(0), Some(Token::NewLine {..}) | None | Some(Token::ClosedCurlyBracket {..})){
-                self.report_error(ParserErrorType::ErrUnexpectedToken, None);
+                if report{ self.report_error(ParserErrorType::ErrUnexpectedToken, None); }
                 self.advance_skip_tokens(1, false, whitespace_skip_predicate);
             }
             self.advance_skip_head(skipping_predicate);
@@ -407,7 +388,7 @@ impl Parser {
         match parser_error_type {
             ParserErrorType::ErrInvalidStatement => {
                 let (stmt_num, _) = token.unwrap().get_span();
-                self.advance_next_stmt();
+                self.advance_next_stmt(false);
                 let (_, (_, stmt_end)) = if matches!(self.m_tokens[self.m_index-1], Token::NewLine{..}){
                     self.m_tokens[self.m_index-2].clone().get_span()
                 } else { self.m_tokens[self.m_index-1].clone().get_span() };

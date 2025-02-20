@@ -109,14 +109,14 @@ fn test_operators(){
     tokenizer.tokenize("(+-*//**%)");
 
     let expected_token = vec!(
-        Token::OpenBracket {span: (0, (0, 0))},
+        Token::Operator(Operator::OpenBracket {span: (0, (0, 0))}),
         Token::Operator(Operator::Plus {span: (0, (1, 1))}),
         Token::Operator(Operator::Minus {span: (0, (2, 2))}),
         Token::Operator(Operator::Multiplication {span: (0, (3, 3))}),
         Token::Operator(Operator::Division {span: (0, (4, 5))}),
         Token::Operator(Operator::Exponent {span: (0, (6, 7))}),
         Token::Operator(Operator::Modulus {span: (0, (8, 8))}),
-        Token::ClosedBracket {span: (0, (9, 9))}
+        Token::Operator(Operator::ClosedBracket {span: (0, (9, 9))})
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
 
