@@ -265,7 +265,7 @@ impl Parser {
                     break;
                 }
                 _ => {
-                    self.report_error(ParserErrorType::ErrUnexpectedToken, None);
+                    self.report_error(ParserErrorType::ErrUnexpectedToken, Some(&token.clone()));
                 },
             }
             self.advance_skip_tokens(1, true, |token| matches!(token, Some(Token::WhiteSpace {..})));
@@ -419,7 +419,7 @@ impl Parser {
             ParserErrorType::ErrTypeMismatch => {
                 span = token.unwrap().get_span();
             },
-            ParserErrorType::ErrScopeClosesCurlyBracketMissing => todo!()
+            ParserErrorType::ErrScopeClosesCurlyBracketMissing => span = token.unwrap().get_span()
         }
         self.m_errors.push((parser_error_type, span));
     }
