@@ -24,6 +24,11 @@ static NOT_VALID_VAR_INPUTS: Lazy<Vec<&str>> = Lazy::new(|| vec![
     "x=\n1"
 ]);
 
+static NOT_VALID_SCOPE_INPUTS: Lazy<Vec<&str>> = Lazy::new(|| vec![
+    "{x=0",
+    "x=0}"
+]);
+
 fn utility_create_parser(stmts: &str) -> Parser{
     let mut tokenizer = TOKENIZER.lock().unwrap();
     tokenizer.tokenize(stmts);
@@ -132,4 +137,54 @@ fn test_invalid_logical_expression_non_boolean_operand() {
     let mut parser = utility_create_parser(input);
     let result = parser.parse();
     assert!(result.is_none(), "Parser should fail when non-boolean operand is used with a logical operator");
+}
+
+#[test]
+fn test_scope(){
+    let input = "x = 1\n{x = 0\nexit(x)}\nexit(x)";
+    let mut parser = utility_create_parser(input);
+    let prog = parser.parse().expect(&format!("For input {}, the parser should not fail", input));
+    let stmts = prog.get_stmts();
+    assert_eq!(stmts.len(), 3, "Expected 3 statements, found {}", stmts.len());
+    assert!(matches!(&stmts[1], NodeStmt::Scope(_)), "Expected a scope statement, found {:?}", stmts[0]);
+    let scope = match &stmts[1] {
+        NodeStmt::Scope(s) => s,
+        _ => panic!("Expected a scope statement, found {:?}", stmts[0])
+    };
+    assert_eq!(scope.stmts.len(), 2, "Expected 2 statements in the scope, found {}", scope.stmts.len());
+}
+
+#[test]
+fn test_scope_nested(){
+    let input = "{x = 1\n{x = 0\nexit(x)}}";
+    let mut parser = utility_create_parser(input);
+    let prog = parser.parse().expect(&format!("For input {}, the parser should not fail", input));
+    let stmts = prog.get_stmts();
+    assert_eq!(stmts.len(), 1, "Expected 1 statements, found {}", stmts.len());
+    assert!(matches!(&stmts[0], NodeStmt::Scope(_)), "Expected a scope statement, found {:?}", stmts[0]);
+    let scope = match &stmts[0] {
+        NodeStmt::Scope(s) => s,
+        _ => panic!("Expected a scope statement, found {:?}", stmts[0])
+    };
+    let scope_stmts = &scope.stmts;
+    assert_eq!(scope_stmts.len(), 2, "Expected 2 statements, found {}", scope_stmts.len());
+    assert!(matches!(scope_stmts[0], NodeStmt::ID(_)), "Expected a variable assignment statement, found {:?}", scope_stmts[0]);
+    assert!(matches!(scope_stmts[1], NodeStmt::Scope(_)), "Expected a scope statement, found {:?}", scope_stmts[1]);
+    let inner_scope =  match &scope_stmts[1]{
+        NodeStmt::Scope(s) => s,
+        _ => panic!("Expected a scope statement, found {:?}", stmts[0])
+    };
+    let inner_scope_stmts = &inner_scope.stmts;
+    assert_eq!(inner_scope_stmts.len(), 2, "Expected 2 statements, found {}", stmts.len());
+    assert!(matches!(inner_scope_stmts[0], NodeStmt::ID(_)), "Expected a variable assignment statement, found {:?}", inner_scope_stmts[0]);
+    assert!(matches!(inner_scope_stmts[1], NodeStmt::Exit(_)), "Expected a scope statement, found {:?}", inner_scope_stmts[1]);
+}
+
+#[test]
+fn test_scope_invalid(){
+    for bad_scope_input in &*NOT_VALID_SCOPE_INPUTS {
+        let mut parser = utility_create_parser(bad_scope_input);
+        let result = parser.parse();
+        assert!(result.is_none(), "For input `{bad_scope_input}`, the parser should fail but succeeded with: {:?}", result);
+    }
 }

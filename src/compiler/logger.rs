@@ -26,11 +26,12 @@ impl ParserLogger {
 #[derive(Eq, PartialEq, Hash, Clone)]
 pub enum ParserErrorType{
     ErrInvalidStatement,
-    ErrExitOpenParenthesisMissing,
-    ErrExitClosedParenthesisMissing,
+    ErrExitOpenBracketMissing,
+    ErrExitClosedBracketMissing,
     ErrUnexpectedToken,
-    ErrExpressionOpenParenthesisMissing,
-    ErrExpressionClosedParenthesisMissing,
+    ErrExpressionOpenBracketMissing,
+    ErrExpressionClosedBracketMissing,
+    ErrScopeClosesCurlyBracketMissing,
     ErrMissingOperand,
     ErrTypeMismatch,
 }
@@ -39,11 +40,12 @@ impl ParserErrorType {
     pub fn message(&self) -> &'static str {
         match self {
             ParserErrorType::ErrInvalidStatement => "Invalid statement",
-            ParserErrorType::ErrExitOpenParenthesisMissing => "Exit '(' is missing.",
-            ParserErrorType::ErrExitClosedParenthesisMissing => "Exit ')' is missing.",
+            ParserErrorType::ErrExitOpenBracketMissing => "Exit '(' is missing.",
+            ParserErrorType::ErrExitClosedBracketMissing => "Exit ')' is missing.",
             ParserErrorType::ErrUnexpectedToken => "Unexpected character sequence found here.",
-            ParserErrorType::ErrExpressionOpenParenthesisMissing => "Mismatched Parenthesis: ( is missing",
-            ParserErrorType::ErrExpressionClosedParenthesisMissing => "Mismatched Parenthesis: ) is missing",
+            ParserErrorType::ErrExpressionOpenBracketMissing => "Mismatched Parenthesis: ( is missing",
+            ParserErrorType::ErrExpressionClosedBracketMissing => "Mismatched Parenthesis: ) is missing",
+            ParserErrorType::ErrScopeClosesCurlyBracketMissing => "Scope is initialized but never closes",
             ParserErrorType::ErrMissingOperand => "Missing operand for operator.",
             ParserErrorType::ErrTypeMismatch => "Type mismatch in expression.",
         }

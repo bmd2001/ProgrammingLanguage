@@ -18,16 +18,16 @@ impl Parser {
 
     pub fn parse(&mut self) -> Option<NodeProgram>{
         let mut prog = NodeProgram { stmts: Vec::new() };
-        while let Some(token) = self.peek(0) {
+        while let Some(..) = self.peek(0) {
             if !self.err_token_present() {
                 match self.parse_stmt() {
                     Some(stmt) => {
                         prog.stmts.push(stmt);
-                        self.advance(1, true);
                     },
                     None => {}
                 }
             }
+            self.advance_next_stmt(true);
         }
         if self.m_errors.len() > 0 {
             self.m_logger.log_errors(self.m_errors.clone());
@@ -40,7 +40,6 @@ impl Parser {
         while !matches!(self.peek(offset), None) && !matches!(self.peek(offset), Some(Token::NewLine {..})){
             if matches!(self.peek(offset), Some(Token::Err { .. })){
                 self.report_error(ParserErrorType::ErrUnexpectedToken, Some(&self.peek(offset).unwrap().clone()));
-                self.advance_next_stmt();
                 return true;
             }
             offset += 1;
@@ -56,14 +55,15 @@ impl Parser {
         else if let Some(variable_assignment) = self.parse_variable_assignment(){
             Some(NodeStmt::ID(variable_assignment))
         }
+        else if let Some(scope_node) = self.parse_scope(){ 
+            Some(NodeStmt::Scope(scope_node))
+        }
         else if prev_len == self.m_errors.len(){
             let token = self.peek(0).unwrap();
             self.report_error(ParserErrorType::ErrInvalidStatement, Some(&token.clone()));
             return None;
-        } else {
-            self.advance_next_stmt();
-            return None;
         }
+        else { None }
     }
     
     fn parse_exit(&mut self) -> Option<NodeExit>{
@@ -72,25 +72,25 @@ impl Parser {
             return None;
         }
         // Check if the second token is an opening parenthesis
-        if !matches!(self.peek(1), Some(Token::OpenParen { .. })) {
+        if !matches!(self.peek(1), Some(Token::OpenBracket { .. })) {
             let token = self.peek(0).unwrap();
-            self.report_error(ParserErrorType::ErrExitOpenParenthesisMissing, Some(&token.clone()));
+            self.report_error(ParserErrorType::ErrExitOpenBracketMissing, Some(&token.clone()));
             return None;
         }
         // Advance past 'exit' and '(' tokens
-        self.advance(2, false);
+        self.advance(2);
 
         // Parse the arithmetic expression
         let expr = self.parse_arithmetic_expr();
 
         // Check for closing parenthesis
-        if !matches!(self.peek(0), Some(Token::CloseParen {..})) {
-            self.report_error(ParserErrorType::ErrExitClosedParenthesisMissing, None);
+        if !matches!(self.peek(0), Some(Token::ClosedBracket {..})) {
+            self.report_error(ParserErrorType::ErrExitClosedBracketMissing, None);
             return None;
         }
 
         // Advance past the closing parenthesis
-        self.advance(1, false);
+        self.advance(1);
 
         // Return the parsed NodeExit
         match expr{
@@ -122,7 +122,7 @@ impl Parser {
                 ref id @ Token::ID { .. },           // First token: Identifier
                 Token::Equals { .. },            // Second token: Equals
                 ] => {
-                    self.advance(2, true);
+                    self.advance_skip_tokens(2, true, |token| matches!(token, Some(Token::WhiteSpace {..})));
                     match self.parse_arithmetic_expr() {
                         Some(expr) => {
                             Some(NodeVariableAssignment {
@@ -232,59 +232,76 @@ impl Parser {
             match token{
                 Token::ID { .. } | Token::Number { .. } | Token::Boolean { .. } => {
                     polish.push_back(token.clone());
-                }
-                Token::OpenParen {span} => {
-                    stack.push(Operator::OpenParenthesis { span: *span })
-                }
-                Token::CloseParen {..} => {
-                    if self.peek(1).is_some() && !matches!(self.peek(1), Some(Token::NewLine {..})) {
-                        while !matches!(stack.last(), Some(Operator::OpenParenthesis {..})) {
-                            if stack.is_empty() {
-                                self.report_error(ParserErrorType::ErrExpressionOpenParenthesisMissing, Some(&token.clone()));
-                                return None;
-                            }
-                            let op = stack.pop().unwrap();
-                            polish.push_back(Token::Operator(op))
-                        }
-                        stack.pop();
-                    } else {break;}
-                }
-                Token::Operator(op) => {
-                    while let Some(operator) = stack.pop() {
-                        if matches!(operator, Operator::OpenParenthesis {..}) || (operator.precedence() <= op.clone().precedence() && (operator.precedence() != op.clone().precedence() || op.clone().associativity().eq("Right"))){
-                            stack.push(operator);
-                            break;
-                        }
-                        polish.push_back(Token::Operator(operator));
-                    }
-                    stack.push(op.clone());
                 },
-                Token::NewLine {..} => {
+                Token::Operator(op) => {
+                    match op{
+                        Operator::OpenBracket { .. } => {
+                            stack.push(*op);
+                        }
+                        Operator::ClosedBracket { .. } => {
+                            while !matches!(stack.last(), Some(Operator::OpenBracket {..})) {
+                                if stack.is_empty() {
+                                    self.report_error(ParserErrorType::ErrExpressionOpenBracketMissing, Some(&token.clone()));
+                                    return None;
+                                }
+                                let op = stack.pop().unwrap();
+                                polish.push_back(Token::Operator(op))
+                            }
+                            stack.pop();
+                        }
+                        _ => {
+                            while let Some(operator) = stack.pop() {
+                                if matches!(operator, Operator::OpenBracket {..}) || (operator.precedence() <= op.clone().precedence() && (operator.precedence() != op.clone().precedence() || op.clone().associativity().eq("Right"))){
+                                    stack.push(operator);
+                                    break;
+                                }
+                                polish.push_back(Token::Operator(operator));
+                            }
+                            stack.push(*op);
+                        }
+                    }
+                },
+                Token::NewLine {..} | Token::ClosedBracket {..} => {
                     break;
                 }
                 _ => {
-                    self.report_error(ParserErrorType::ErrUnexpectedToken, None);
+                    self.report_error(ParserErrorType::ErrUnexpectedToken, Some(&token.clone()));
                 },
             }
-            self.advance(1, true);
+            self.advance_skip_tokens(1, true, |token| matches!(token, Some(Token::WhiteSpace {..})));
         }
         while let Some(i) = stack.pop(){
-            if let Operator::OpenParenthesis { span } = i{
-                self.report_error(ParserErrorType::ErrExpressionClosedParenthesisMissing, Some(&Token::OpenParen { span }));
+            if let Operator::OpenBracket { span } = i{
+                self.report_error(ParserErrorType::ErrExpressionClosedBracketMissing, Some(&Token::OpenBracket { span }));
                 return None;
             }
             polish.push_back(Token::Operator(i));
         }
         Some(polish)
     }
-
-    fn parse_base_expr(&mut self, token: Token) -> Result<NodeBaseExpr, String> {
-        match token {
-            Token::ID { .. } => {Ok(NodeBaseExpr::ID(token.clone()))}
-            Token::Number { .. } => {Ok(NodeBaseExpr::Num(token.clone()))}
-            Token::Boolean { .. } => {Ok(NodeBaseExpr::Bool(token.clone()))}
-            _ => {Err("The parsed token was not an Identifier or a Number".to_string())}
+    
+    fn parse_scope(&mut self) -> Option<NodeScope>{
+        if !matches!(self.peek(0), Some(Token::OpenCurlyBracket { .. })){
+            return None;
         }
+        let jump_back = &self.m_tokens[self.m_index].get_span();
+        self.advance_next_stmt(true);
+        let mut stmts = Vec::new();
+        //TODO Rewrite this section (from while to the if after)
+        while !matches!(self.peek(0), Some(Token::ClosedCurlyBracket { .. })) && !matches!(self.peek(0), None) {
+            if let Some(stmt) = self.parse_stmt() {
+                stmts.push(stmt);
+            }
+            if !matches!(self.peek(0), Some(Token::ClosedCurlyBracket { .. })){
+                self.advance_next_stmt(true);
+            }
+        }
+        if let Some(Token::ClosedCurlyBracket { .. }) = self.peek(0) {
+            self.advance(1);
+            return Some(NodeScope { stmts })
+        }
+        self.report_error(ParserErrorType::ErrScopeClosesCurlyBracketMissing, Some(&Token::OpenCurlyBracket { span: *jump_back }));
+        None
     }
     
     fn peek(& self, offset: usize) -> Option<&Token> {
@@ -317,72 +334,82 @@ impl Parser {
         }
         None
     }
-    
-    fn expect_token(&mut self, token_type: &Token, avoid_space: bool) -> bool {
-        if avoid_space {
-        }
-        if let Some(token) = self.peek(0){
-            return matches!(token_type, token);
-        }
-        false
-    }
 
-
-    fn advance(&mut self, step: usize, inc_space: bool) {
-        if !inc_space{
-            self.m_index = usize::min(self.m_index + step, self.m_tokens.len());
-        }
-        else {
-            let mut counter = 0;
-            let mut offset = 0;
-
-            while self.m_index + offset < self.m_tokens.len() {
-                let token = &self.m_tokens[self.m_index + offset];
-                if counter < step && !matches!(token, Token::WhiteSpace {..}){
-                    counter += 1;
-                } else if !matches!(token, Token::WhiteSpace {..}){
-                    break;
-                }
-                offset += 1;
+    fn advance_next_stmt(&mut self, report: bool){
+        let skipping_predicate: fn(Option<&Token>) -> bool =
+            |token| matches!(token, Some(Token::WhiteSpace {..})) 
+                || matches!(token, Some(Token::NewLine {..}));
+        if matches!(self.peek(0), Some(Token::OpenCurlyBracket {..})) {
+            self.advance(1);
+            self.advance_skip_head(skipping_predicate);
+        } else if skipping_predicate(self.peek(0)){
+            let whitespace_skip_predicate : fn(Option<&Token>) -> bool = |token| matches!(token, Some(Token::WhiteSpace {..}));
+            self.advance_skip_head(whitespace_skip_predicate);
+            while !matches!(self.peek(0), Some(Token::NewLine {..}) | None | Some(Token::ClosedCurlyBracket {..})){
+                if report{ self.report_error(ParserErrorType::ErrUnexpectedToken, None); }
+                self.advance_skip_tokens(1, false, whitespace_skip_predicate);
             }
-            self.m_index = usize::min(self.m_index + offset, self.m_tokens.len());
+            self.advance_skip_head(skipping_predicate);
+        } else {
+            self.advance_skip_tokens(1, false, skipping_predicate);   
         }
     }
-    
-    fn advance_next_stmt(&mut self){
-        while !matches!(self.peek(0), Some(Token::NewLine { .. })) && !matches!(self.peek(0), None){
-            self.advance(1, false);
-        }
-        self.advance(1, true);
+
+    fn advance(&mut self, step: usize){
+        self.m_index = usize::min(self.m_index + step, self.m_tokens.len());
     }
-    
+
+    fn advance_skip_head<F>(&mut self, skipping_predicate: F)
+    where F: Fn(Option<&Token>) -> bool
+    {
+        while skipping_predicate(self.peek(0)) {
+            self.m_index += 1;
+        }
+    }
+
+    fn advance_skip_tokens<F>(&mut self, step: usize, skip_tail: bool, skipping_predicate: F)
+    where F: Fn(Option<&Token>) -> bool + Copy
+    {
+        let mut num_valid_chars_passed = 0;
+        self.advance_skip_head(skipping_predicate);
+        while num_valid_chars_passed != step && self.m_index < self.m_tokens.len(){
+            if !skipping_predicate(self.peek(0)){
+                num_valid_chars_passed += 1;
+            }
+            self.m_index += 1;
+        }
+        if skip_tail{
+            self.advance_skip_head(skipping_predicate);
+        }
+    }
+
     fn report_error(&mut self, parser_error_type: ParserErrorType, token: Option<&Token>){
         let mut span : (usize, (usize, usize)) = (0, (0, 0));
         match parser_error_type {
             ParserErrorType::ErrInvalidStatement => {
                 let (stmt_num, _) = token.unwrap().get_span();
-                self.advance_next_stmt();
+                self.advance_next_stmt(false);
                 let (_, (_, stmt_end)) = if matches!(self.m_tokens[self.m_index-1], Token::NewLine{..}){
                     self.m_tokens[self.m_index-2].clone().get_span()
                 } else { self.m_tokens[self.m_index-1].clone().get_span() };
                 span = (stmt_num, (0, stmt_end+1));
             }
-            ParserErrorType::ErrExitOpenParenthesisMissing => {
+            ParserErrorType::ErrExitOpenBracketMissing => {
                 if let Some(Token::Exit {span: (exit_line, (_, exit_end))}) = token{
                     span = (*exit_line, (*exit_end, *exit_end))
                 }
             }
-            ParserErrorType::ErrExitClosedParenthesisMissing => {
+            ParserErrorType::ErrExitClosedBracketMissing => {
                 let token = self.m_tokens[self.m_index-1].clone();
                 span = token.get_span();
             }
             ParserErrorType::ErrUnexpectedToken => {
                 span = token.unwrap().get_span();
             }
-            ParserErrorType::ErrExpressionOpenParenthesisMissing => {
+            ParserErrorType::ErrExpressionOpenBracketMissing => {
                 span = token.unwrap().get_span();
             }
-            ParserErrorType::ErrExpressionClosedParenthesisMissing => {
+            ParserErrorType::ErrExpressionClosedBracketMissing => {
                 // TODO check for correct parenthesis mismatching detection
                 span = token.unwrap().get_span();
             }
@@ -391,7 +418,8 @@ impl Parser {
             }
             ParserErrorType::ErrTypeMismatch => {
                 span = token.unwrap().get_span();
-            }
+            },
+            ParserErrorType::ErrScopeClosesCurlyBracketMissing => span = token.unwrap().get_span()
         }
         self.m_errors.push((parser_error_type, span));
     }
@@ -406,7 +434,8 @@ pub struct NodeProgram{
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeStmt {
     Exit(NodeExit),
-    ID(NodeVariableAssignment)
+    ID(NodeVariableAssignment),
+    Scope(NodeScope)
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -418,6 +447,11 @@ pub struct NodeExit {
 pub struct NodeVariableAssignment {
     pub variable: Token,
     pub value: NodeArithmeticExpr
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NodeScope {
+    pub stmts: Vec<NodeStmt>
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeArithmeticExpr {
@@ -504,6 +538,13 @@ impl fmt::Display for NodeStmt {
         match self {
             NodeStmt::Exit(exit) => write!(f, "exit({})", exit.expr),
             NodeStmt::ID(var_assign) => write!(f, "{}", var_assign),
+            NodeStmt::Scope(scope) => {
+                write!(f, "{{")?;
+                for stmt in &scope.stmts {
+                    write!(f, "{}", stmt)?;
+                }
+                write!(f, "}}")
+            },
         }
     }
 }

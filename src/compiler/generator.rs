@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use either::Either;
 use either::Either::{Left, Right};
 use crate::compiler::architecture::TARGET_ARCH;
-use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation};
+use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::arithmetic_instructions::{ArithmeticInstructions};
 use crate::compiler::logger::ParserErrorType;
@@ -15,14 +15,15 @@ fn type_name_of<T>(_: &T) -> &'static str {
 pub struct Generator {
     m_prog: NodeProgram,
     m_output: String,
-    m_id_names: HashMap<String, usize>,
+    m_id_names: HashMap<(String, usize), usize>,
     m_stack_size: usize,
-    num_exponentials: usize,
+    m_num_exponentials: usize,
+    m_scope_depth: usize,
 }
 
 impl Generator {
     pub fn new(prog : NodeProgram) -> Self {
-        Generator {m_prog: prog, m_output: "".to_string(), m_id_names: HashMap::new(), m_stack_size: 0, num_exponentials: 0, }
+        Generator {m_prog: prog, m_output: "".to_string(), m_id_names: HashMap::new(), m_stack_size: 0, m_num_exponentials: 0, m_scope_depth: 0}
     }
     
     pub fn get_out_assembly(& self) -> String {
@@ -46,7 +47,8 @@ impl Generator {
     fn generate_stmt(&mut self, stmt: &NodeStmt) {
         match stmt {
             NodeStmt::Exit(exit) => self.generate_exit(exit),
-            NodeStmt::ID(var) => self.generate_id(var)
+            NodeStmt::ID(var) => self.generate_id(var),
+            NodeStmt::Scope(scope) => self.generate_scope(scope),
         }
     }
     
@@ -55,18 +57,26 @@ impl Generator {
         self.m_output.push_str(&format!("\t; Exit Code = {}\n", exit.expr));
         self.generate_arithmetic_expr(&exit.expr);
         self.pop(TARGET_ARCH.get_exit_reg().to_string());
-        self.m_output.push_str("\n");
-        self.m_output.push_str(TARGET_ARCH.get_exit_instr());
-        self.m_output.push_str("\n\t; Exit end call\n");
+        self.m_output.push_str(&format!("\t{}\n", TARGET_ARCH.get_exit_instr()));
+        self.m_output.push_str("\t; Exit end call\n\n");
     }
     
     fn generate_id(&mut self, var: &NodeVariableAssignment) {
-        self.m_output.push_str("\t; VarAssignement\n");
+        self.m_output.push_str("\t; VarAssignment\n");
         if let Token::ID {name, ..}  = &var.variable{
             self.m_output.push_str(&format!("\t; {var}\n"));
             self.generate_arithmetic_expr(&var.value);
-            self.m_id_names.insert(name.clone(), self.m_stack_size-1);
+            self.m_id_names.insert((name.clone(), self.m_scope_depth), self.m_stack_size-1);
         }
+    }
+    
+    fn generate_scope(&mut self, scope: &NodeScope){
+        let stmts = scope.stmts.clone();
+        self.m_scope_depth += 1;
+        for stmt in stmts {
+            self.generate_stmt(&stmt);
+        }
+        self.m_scope_depth -= 1;
     }
     
     fn generate_arithmetic_expr(&mut self, expr: &NodeArithmeticExpr){
@@ -92,7 +102,7 @@ impl Generator {
             }
             NodeBaseExpr::ID(token) => {
                 if let Token::ID { name, .. } = token {
-                    if let Some(stack_loc) = self.m_id_names.get(name) {
+                    if let Some(stack_loc) = self.m_id_names.get(&(name.clone(), self.m_scope_depth)) {
                         let offset = self.m_stack_size.checked_sub(1 + *(stack_loc))
                             .expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
                         self.m_output.push_str(&format!("\t; Recuperate {name}'s value from stack\n\t{}\n", TARGET_ARCH.get_load_variable_instr(offset)));
@@ -275,8 +285,8 @@ impl Generator {
     }    
     
     fn generate_exponential_labels(&mut self) -> (String, String){
-        let result = (format!("exponential{}", self.num_exponentials), format!("exp_done{}", self.num_exponentials));
-        self.num_exponentials += 1;
+        let result = (format!("exponential{}", self.m_num_exponentials), format!("exp_done{}", self.m_num_exponentials));
+        self.m_num_exponentials += 1;
         result
     }
 
