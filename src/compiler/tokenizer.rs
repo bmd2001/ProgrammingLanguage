@@ -3,17 +3,16 @@ use std::iter::Peekable;
 use std::str::Chars;
 
 pub struct Tokenizer {
-
     m_tokens : Vec<Token>,
     m_line: usize,
     m_row: usize,
-    m_exit_bracket_depth: usize
+    m_parenthesis_handler: ParenthesisHandler,
 }
 
 impl Tokenizer {
 
     pub fn new() -> Self {
-        Tokenizer { m_tokens: Vec::new(), m_line: 0, m_row: 0, m_exit_bracket_depth: 0}
+        Tokenizer { m_tokens: Vec::new(), m_line: 0, m_row: 0, m_parenthesis_handler: ParenthesisHandler::new()}
     }
 
     pub fn get_tokens(&self) -> Vec<Token> {
@@ -63,27 +62,7 @@ impl Tokenizer {
     
     fn match_ch(&mut self, ch: char, peek: Option<&char>) -> Option<Token> {
         match ch {
-            '(' => {
-                if self.m_exit_bracket_depth == 0{
-                    return Some(Token::Operator(Operator::OpenBracket { span: (self.m_line, (self.m_row, self.m_row)) }))
-                }
-                else if self.m_exit_bracket_depth == 1 {
-                    self.m_exit_bracket_depth += 1;
-                    return Some(Token::OpenBracket { span: (self.m_line, (self.m_row, self.m_row)) })
-                }
-                self.m_exit_bracket_depth += 1;
-                Some(Token::Operator(Operator::OpenBracket { span: (self.m_line, (self.m_row, self.m_row)) }))
-            },
-            ')' => {
-                if self.m_exit_bracket_depth > 0 {
-                    self.m_exit_bracket_depth -= 1;
-                    if self.m_exit_bracket_depth == 1{
-                        self.m_exit_bracket_depth = 0;
-                        return Some(Token::ClosedBracket { span: (self.m_line, (self.m_row, self.m_row)) })
-                    }
-                }
-                Some(Token::Operator(Operator::ClosedBracket { span: (self.m_line, (self.m_row, self.m_row)) }))
-            },
+            '(' | ')' => Some(self.m_parenthesis_handler.emit_bracket_token((self.m_line, (self.m_row, self.m_row)), ch)),
             '{' => Some(Token::OpenCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             '}' => Some(Token::ClosedCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             '=' => Some(Token::Equals { span: (self.m_line, (self.m_row, self.m_row)) }),
@@ -97,6 +76,7 @@ impl Tokenizer {
                 } else {Some(Token::Operator(Operator::Multiplication { span: (self.m_line, (self.m_row, self.m_row)) }))}
             },
             '\n' => {
+                self.m_parenthesis_handler.deactivate_function_detector();
                 Some(Token::NewLine { span: (self.m_line, (self.m_row, self.m_row)) })
             }
             _ => {None}
@@ -106,7 +86,7 @@ impl Tokenizer {
     fn check_buf(&mut self, buf : &String, input: &Peekable<Chars>) -> Option<Token> {
         match buf.as_str() {
             "exit" => {
-                self.m_exit_bracket_depth += 1;
+                self.m_parenthesis_handler.activate_function_detector();
                 Some(Token::Exit {span : self.get_span(buf.len())})
             },
             "**" => Some(Token::Operator(Operator::Exponent {span : self.get_span(buf.len())})),
@@ -158,13 +138,68 @@ impl Tokenizer {
     fn handle_newline(&mut self){
         self.m_line += 1;
         self.m_row = 0;
-        self.m_exit_bracket_depth = 0;
     }
     
     fn get_span(&mut self, length: usize) -> (usize, (usize, usize)){
         let start = self.m_row;
         self.m_row += length - 1;
         (self.m_line, (start, start + length - 1))
+    }
+}
+
+struct ParenthesisHandler{
+    m_function_call: bool,
+    m_bracket_depth: usize
+}
+
+impl ParenthesisHandler{
+    pub fn new() -> Self {
+        ParenthesisHandler { m_function_call: false, m_bracket_depth: 0}
+    }
+    
+    pub fn activate_function_detector(&mut self){
+        self.m_function_call = true;
+        self.m_bracket_depth = 0;
+    }
+    
+    pub fn deactivate_function_detector(&mut self){
+        self.m_function_call = false;
+        self.m_bracket_depth = 0;
+    }
+    
+    pub fn emit_bracket_token(&mut self, span: (usize, (usize, usize)) , c: char) -> Token{
+        if c == '('{
+            self.handle_open_bracket(span)
+        }
+        else if c == ')'{
+            self.handle_closed_bracket(span)
+        } else { 
+            panic!("Invalid character passed to Parenthesis Handler")
+        }
+    }
+    
+    fn handle_open_bracket(&mut self, span: (usize, (usize, usize))) -> Token{
+        let mut res = Token::Operator(Operator::OpenBracket { span });
+        if self.m_function_call{
+            if self.m_bracket_depth == 0{
+                res = Token::OpenBracket { span };
+            }
+            self.m_bracket_depth += 1;
+        }
+        res
+    }
+    
+    fn handle_closed_bracket(&mut self, span: (usize, (usize, usize))) -> Token {
+        let mut res = Token::Operator(Operator::ClosedBracket { span });
+        if self.m_function_call {
+            if vec![0, 1].contains(&self.m_bracket_depth) {
+                res = Token::ClosedBracket { span };
+                self.deactivate_function_detector();
+            } else { 
+                self.m_bracket_depth -= 1;
+            }
+        }
+        res
     }
 }
 
