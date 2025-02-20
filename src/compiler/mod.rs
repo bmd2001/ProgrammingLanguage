@@ -1,13 +1,13 @@
 pub mod tokenizer;
-pub mod parser;
-pub mod generator;
+mod generator;
 mod architecture;
 mod arithmetic_instructions;
-pub mod logger;
+mod logger;
+pub mod parser;
 
-use crate::compiler::tokenizer::{Token, Tokenizer};
-use crate::compiler::parser::{NodeProgram, Parser};
-use crate::compiler::generator::Generator;
+use self::tokenizer::{Token, Tokenizer};
+use self::parser::{NodeProgram, Parser};
+use self::generator::Generator;
 
 pub struct Compiler {
 }

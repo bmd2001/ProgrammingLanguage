@@ -1,4 +1,4 @@
-use BRS::compiler::parser::{NodeProgram, NodeStmt, NodeVariableAssignment, NodeArithmeticExpr, NodeBaseExpr, Parser};
+use BRS::compiler::parser::{NodeStmt, NodeVariableAssignment, NodeArithmeticExpr, NodeBaseExpr, Parser};
 use BRS::compiler::tokenizer::{Token, Tokenizer};
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
