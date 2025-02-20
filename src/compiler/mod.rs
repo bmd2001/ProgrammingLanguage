@@ -5,9 +5,11 @@ mod arithmetic_instructions;
 mod logger;
 pub mod parser;
 
+use crate::compiler::parser::init_parser_logger;
 use self::tokenizer::{Token, Tokenizer};
 use self::parser::{NodeProgram, Parser};
 use self::generator::Generator;
+
 
 pub struct Compiler {
 }
@@ -28,7 +30,8 @@ impl Compiler {
 
         // Parse
         let prog : Option<NodeProgram> = {
-            let mut parser = Parser::new(tokens, file.to_string(), input.to_string());
+            init_parser_logger(file.to_string(), input.to_string());
+            let mut parser = Parser::new(tokens);
             parser.parse()
         };
 

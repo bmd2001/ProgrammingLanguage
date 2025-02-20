@@ -14,10 +14,13 @@ pub use nodes::{
     NodeScope,
 };
 
-use token_stream::{
-    TokenStream,
-};
 
 pub use parser::{
     Parser,
+};
+
+pub use parser_logger::{
+    init_parser_logger,
+    global_report_parser_error,
+    ParserErrorType
 };

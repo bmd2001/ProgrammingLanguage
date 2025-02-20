@@ -40,7 +40,7 @@ impl Tokenizer {
         let mut chars = input.chars().peekable();
         while let Some(ch) = chars.next(){
             buf.push(ch);
-            if let Some(token) = self.check_buf(buf, &chars) {
+            if let Some(token) = self.check_buf(buf, &mut chars) {
                 self.emit_token(token);
                 buf.clear();
             }
@@ -89,7 +89,7 @@ impl Tokenizer {
         }
     }
 
-    fn check_buf(&mut self, buf : &String, input: &Peekable<Chars>) -> Option<Token> {
+    fn check_buf(&mut self, buf : &String, input: &mut Peekable<Chars>) -> Option<Token> {
         match buf.replace(" ", "").as_str() {
             "exit" => {
                 self.m_parenthesis_handler.activate_function_detector();
@@ -104,6 +104,9 @@ impl Tokenizer {
             "true" => Some(Token::Boolean { value: true, span: self.get_span(buf.len()) }),
             "false" => Some(Token::Boolean { value: false, span: self.get_span(buf.len()) }),
             "" => {
+                if let Some(' ') = input.peek(){
+                    return None
+                }
                 Some(Token::WhiteSpace {span: self.get_span(buf.len())})
             }
             _ => {
