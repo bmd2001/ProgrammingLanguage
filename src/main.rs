@@ -48,60 +48,112 @@ fn main() {
             fs::write(&out_asm_file, assembly_code).expect("Unable to write file");
 
             let arch = env::consts::ARCH;
+            let os = env::consts::OS;
 
-            // Run NASM (only if running on x86_64) or as (only if running on arm based macs)
-            if arch == "x86_64" {
-                let nasm_command = Command::new("nasm")
-                    .arg("-f")
-                    .arg("macho64")
-                    .arg(&out_asm_file)
-                    .output()
-                    .expect("Failed to execute nasm");
+            let current_dir = env::current_dir().expect("Failed to get current directory");
 
-                if !nasm_command.status.success() {
-                    eprintln!("Failed to run nasm: {}", String::from_utf8_lossy(&nasm_command.stderr));
-                    std::process::exit(1);
-                }
-            } else if arch == "aarch64" {
-                let as_command = Command::new("as")
-                    .arg("-arch")
-                    .arg("arm64")
-                    .arg("-o")
-                    .arg(&out_o_file)
-                    .arg(&out_asm_file)
-                    .output()
-                    .expect("Failed to execute ARM assembler (`as`)");
-            
-                if !as_command.status.success() {
-                    eprintln!("Failed to run `as`: {}", String::from_utf8_lossy(&as_command.stderr));
-                    std::process::exit(1);
-                }
+            match os {
+                "macos" => {
+                    match arch {
+                        "x86_64" => {
+                            run_command(
+                                Command::new("nasm")
+                                    .current_dir(&current_dir)
+                                    .arg("-f")
+                                    .arg("macho64")
+                                    .arg(&out_asm_file)
+                            );
+                        },
+                        "aarch64" => {
+                            run_command(
+                                Command::new("as")
+                                    .current_dir(&current_dir)
+                                    .arg("-arch")
+                                    .arg("arm64")
+                                    .arg("-o")
+                                    .arg(&out_o_file)
+                                    .arg(&out_asm_file)
+                            );
+                        },
+                        _ => eprintln!("Unsupported architecture"),
+                    }
+
+                    let ld_output = run_command(
+                        Command::new("ld")
+                            .current_dir(&current_dir)
+                            .arg("-arch")
+                            .arg(if arch == "x86_64" { "x86_64" } else { "arm64" })
+                            .arg("-macos_version_min")
+                            .arg("11.0.0")
+                            .arg("-o")
+                            .arg(format!("{}out", out_dir))
+                            .arg(&out_o_file)
+                            .arg("-e")
+                            .arg("_start")
+                            .arg("-static")
+                    );
+                    println!("{}", ld_output);
+                },
+                "linux" => {
+                    match arch {
+                        "x86_64" => {
+                            run_command(
+                                Command::new("nasm")
+                                    .current_dir(&current_dir)
+                                    .arg("-f")
+                                    .arg("elf64")
+                                    .arg("-F")
+                                    .arg(&out_asm_file)
+                                    .arg("-o")
+                                    .arg(&out_o_file)
+                            );
+                        },
+                        "aarch64" => {
+                            run_command(
+                                Command::new("aarch64-linux-gnu-as")
+                                    .current_dir(&current_dir)
+                                    .arg("-o")
+                                    .arg(&out_o_file)
+                                    .arg(&out_asm_file)
+                            );
+                        },
+                        _ => eprintln!("Unsupported architecture"),
+                    }
+
+                    let mut ld_command = if arch == "aarch64" {
+                        Command::new("aarch64-linux-gnu-ld")
+                    } else {
+                        Command::new("x86_64-linux-gnu-gcc")
+                    };
+
+                    let ld_output = run_command(
+                        ld_command
+                            .current_dir(&current_dir)
+                            .arg("-o")
+                            .arg(format!("{}out", out_dir))
+                            .arg(&out_o_file)
+                            .arg("-e")
+                            .arg("_start")
+                            .arg("-static")
+                    );
+
+                    println!("{}", ld_output);
+                },
+                _ => eprintln!("Unsupported OS"),
             }
 
-            // Run ld
-            let ld_command = Command::new("ld")
-                .arg("-arch")
-                .arg(if arch == "x86_64" { "x86_64" } else { "arm64" })
-                .arg("-macos_version_min")
-                .arg("11.0.0")
-                .arg("-o")
-                .arg(out_dir.to_owned() + "out")
-                .arg(&out_o_file)
-                .arg("-e")
-                .arg("_start")
-                .arg("-static")
-                .output()
-                .expect("Failed to execute ld");
-
-            if !ld_command.status.success() {
-                eprintln!("Failed to run ld: {}", String::from_utf8_lossy(&ld_command.stderr));
-                std::process::exit(1);
-            }
-
-            println!("{}", String::from_utf8_lossy(&ld_command.stdout));
         }
         None => {
             std::process::exit(1);
         }
     }
+}
+
+fn run_command(cmd: &mut Command) -> String {
+    let output = cmd.output().expect("Failed to execute command");
+    if !output.status.success() {
+        eprintln!("Command failed: {}", String::from_utf8_lossy(&output.stderr));
+        std::process::exit(1);
+    }
+    String::from_utf8_lossy(&output.stdout).to_string()
 }
