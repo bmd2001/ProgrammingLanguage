@@ -55,7 +55,7 @@ impl Parser {
         else if let Some(variable_assignment) = self.parse_variable_assignment(){
             Some(NodeStmt::ID(variable_assignment))
         }
-        else if let Some(scope_node) = self.parse_scope(){ 
+        else if let Some(scope_node) = self.parse_scope(){
             Some(NodeStmt::Scope(scope_node))
         }
         else if prev_len == self.m_errors.len(){
@@ -279,7 +279,7 @@ impl Parser {
         }
         Some(polish)
     }
-    
+
     fn parse_scope(&mut self) -> Option<NodeScope>{
         if !matches!(self.peek(0), Some(Token::OpenCurlyBracket { .. })){
             return None;
@@ -337,7 +337,7 @@ impl Parser {
 
     fn advance_next_stmt(&mut self, report: bool){
         let skipping_predicate: fn(Option<&Token>) -> bool =
-            |token| matches!(token, Some(Token::WhiteSpace {..})) 
+            |token| matches!(token, Some(Token::WhiteSpace {..}))
                 || matches!(token, Some(Token::NewLine {..}));
         if matches!(self.peek(0), Some(Token::OpenCurlyBracket {..})) {
             self.advance(1);
@@ -351,7 +351,7 @@ impl Parser {
             }
             self.advance_skip_head(skipping_predicate);
         } else {
-            self.advance_skip_tokens(1, false, skipping_predicate);   
+            self.advance_skip_tokens(1, false, skipping_predicate);
         }
     }
 
