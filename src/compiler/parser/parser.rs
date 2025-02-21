@@ -9,11 +9,10 @@ use super::nodes::{
     NodeVariableAssignment,
 };
 use super::parser_logger::{ParserErrorType, ParserLogger};
-use crate::compiler::tokenizer::{Operator, Token};
+use crate::compiler::tokenizer::{Token};
 use crate::compiler::parser::ExpressionFactory;
 use super::token_stream::TokenStream;
 use either::{Either, Left, Right};
-use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 pub struct Parser{ 
