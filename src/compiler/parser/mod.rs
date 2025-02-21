@@ -20,7 +20,6 @@ pub use parser::{
 };
 
 pub use parser_logger::{
-    init_parser_logger,
-    global_report_parser_error,
+    ParserLogger,
     ParserErrorType
 };

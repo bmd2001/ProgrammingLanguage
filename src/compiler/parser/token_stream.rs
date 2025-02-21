@@ -1,14 +1,17 @@
-use crate::compiler::parser::{global_report_parser_error, ParserErrorType};
+use std::sync::{Arc, Mutex};
+use crate::compiler::parser::{ParserErrorType};
+use crate::compiler::parser::parser_logger::ParserLogger;
 use crate::compiler::tokenizer::Token;
 
 pub(crate) struct TokenStream{
     m_tokens: Vec<Vec<Token>>,
+    m_logger: Arc<Mutex<ParserLogger>>,
     m_index: usize,
     m_stmt_index: usize
 }
 
 impl TokenStream{
-    pub fn new(tokens: Vec<Token>) -> TokenStream{
+    pub fn new(tokens: Vec<Token>, m_logger: Arc<Mutex<ParserLogger>>) -> TokenStream{
         let mut m_tokens = Vec::new();
         let mut line = Vec::new();
 
@@ -48,7 +51,7 @@ impl TokenStream{
             m_tokens.push(trim_whitespace(line));
         }
 
-        TokenStream{ m_tokens, m_index: 0, m_stmt_index: 0}
+        TokenStream{ m_tokens, m_logger, m_index: 0, m_stmt_index: 0}
     }
 
     pub fn peek(&self, step: usize) -> Option<Token>{
@@ -128,7 +131,9 @@ impl TokenStream{
 
     pub fn advance_stmt(&mut self, report: bool){
         while self.peek(0).is_some() && report{
-            global_report_parser_error((ParserErrorType::ErrUnexpectedToken, self.peek(0).unwrap().get_span()));
+            if let Ok(mut logger) = self.m_logger.lock() {
+                logger.log_error(ParserErrorType::ErrUnexpectedToken, self.peek(0).unwrap().get_span());
+            }
             self.advance(1);
         }
         while self.peek(0).is_none() && !self.is_end(){

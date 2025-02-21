@@ -1,4 +1,3 @@
-use std::sync::{Mutex, OnceLock};
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use crate::compiler::logger::Logger;
 
@@ -6,26 +5,27 @@ use crate::compiler::logger::Logger;
 pub struct ParserLogger{
     file_name: String,
     source: Source,
-    errors: Vec<(ParserErrorType, (usize, (usize, usize)))>
+    errors: Vec<(String, (usize, (usize, usize)))>
 }
 
 impl ParserLogger {
     pub fn failed_parsing(&self) -> bool {
         !self.errors.is_empty()
     }
+
+    pub fn log_error(&mut self, error: ParserErrorType, span:(usize, (usize, usize))) {
+        let res = (error.message().to_string(), span);
+        self.errors.push(res);
+    }
     
-    fn log_errors(&self){
+    pub fn report_errors(&self){
         // Check if the code is being run with a test profile
         let is_test_profile = std::thread::current().name().map_or(false, |name| name.starts_with("test"));
         if !is_test_profile {
             for (error, span) in self.errors.clone() {
-                self.log_error(error.message(), span)
+                self.report_error(error.as_str(), span)
             }
         }
-    }
-    
-    fn report_error(&mut self, error: (ParserErrorType, (usize, (usize, usize)))) {
-        self.errors.push(error);
     }
 }
 
@@ -63,7 +63,7 @@ impl Logger for ParserLogger{
         ParserLogger{ file_name, source: Source::from(code), errors: vec![] }
     }
 
-    fn log_error(&self, message: &str, span: (usize, (usize, usize))) {
+    fn report_error(&self, message: &str, span: (usize, (usize, usize))) {
         let (line_i, (row_start, row_end)) = span;
         let offset = self.source.line(line_i).expect("Custom Span logic returned wrong line ID").offset();
         Report::build(ReportKind::Error, (self.file_name.as_str(), offset + row_start..offset + row_end))
@@ -76,39 +76,5 @@ impl Logger for ParserLogger{
             .finish()
             .eprint((self.file_name.as_str(), self.source.clone()))
             .unwrap();
-    }
-}
-
-pub static PARSER_LOGGER: OnceLock<Mutex<ParserLogger>> = OnceLock::new();
-
-pub fn init_parser_logger(file_name: String, code: String) {
-    let _ = PARSER_LOGGER.set(Mutex::new(ParserLogger::new(file_name, code)));
-}
-
-pub fn global_report_parser_error(error: (ParserErrorType, (usize, (usize, usize)))) {
-    if let Some(logger) = PARSER_LOGGER.get() {
-        let mut logger = logger.lock().unwrap();
-        logger.report_error(error);
-    } else {
-        eprintln!("Parser Logger not initialized correctly");
-    }
-}
-
-pub fn global_log_errors() {
-    if let Some(logger) = PARSER_LOGGER.get() {
-        let logger = logger.lock().unwrap();
-        logger.log_errors();
-    } else {
-        eprintln!("Parser Logger not initialized correctly");
-    }
-}
-
-pub fn failed_parsing() -> bool {
-    if let Some(logger) = PARSER_LOGGER.get() {
-        let logger = logger.lock().unwrap();
-        logger.failed_parsing()
-    } else {
-        eprintln!("Parser Logger not initialized correctly");
-        false
     }
 }

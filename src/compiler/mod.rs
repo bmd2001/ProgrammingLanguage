@@ -2,10 +2,12 @@ pub mod tokenizer;
 mod generator;
 mod architecture;
 mod arithmetic_instructions;
-mod logger;
+pub mod logger;
 pub mod parser;
 
-use crate::compiler::parser::init_parser_logger;
+use std::sync::{Arc, Mutex};
+use self::logger::Logger;
+use self::parser::{ParserLogger};
 use self::tokenizer::{Token, Tokenizer};
 use self::parser::{NodeProgram, Parser};
 use self::generator::Generator;
@@ -30,8 +32,8 @@ impl Compiler {
 
         // Parse
         let prog : Option<NodeProgram> = {
-            init_parser_logger(file.to_string(), input.to_string());
-            let mut parser = Parser::new(tokens);
+            let logger = Arc::new(Mutex::new(ParserLogger::new(file.to_string(), input.to_string())));
+            let mut parser = Parser::new(tokens, logger);
             parser.parse()
         };
 
