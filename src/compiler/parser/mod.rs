@@ -3,6 +3,7 @@ mod nodes;
 mod parser_logger;
 mod token_stream;
 mod expression_factory;
+mod statement_factory;
 
 pub use nodes::{
     NodeProgram,

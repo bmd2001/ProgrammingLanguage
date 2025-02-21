@@ -96,6 +96,17 @@ impl TokenStream{
             self.m_tokens.last().map_or(true,
                                         |line| self.m_index >= line.len())
     }
+    
+    pub fn is_err_token_present(&self) -> bool{
+        let mut offset = 0;
+        while self.peek(offset).is_some(){
+            if matches!(self.peek(offset).unwrap(), Token::Err { .. }){
+                return true;
+            }
+            offset += 1;
+        }
+        false
+    }
 
     // Advance Methods
     pub fn advance(&mut self, step: usize){
