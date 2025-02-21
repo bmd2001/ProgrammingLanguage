@@ -24,6 +24,20 @@ impl Generator {
     pub fn new(prog : NodeProgram) -> Self {
         Generator {m_prog: prog, m_output: "".to_string(), m_id_names: HashMap::new(), m_stack_size: 0, m_num_exponentials: 0, m_scope_depth: 0}
     }
+
+    pub fn generate_comment(comment: &str) -> String {
+        if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
+            format!("\t// {}\n", comment)
+        } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+            format!("\t; {}\n", comment)
+        } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+            format!("\t; {}\n", comment)
+        } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+            format!("\t; {}\n", comment)
+        } else {
+            String::new()
+        }
+    }
     
     pub fn get_out_assembly(& self) -> String {
         self.m_output.clone()
@@ -37,7 +51,7 @@ impl Generator {
             self.generate_stmt(&stmt);
         }
         if !self.m_output.contains(TARGET_ARCH.get_exit_marker()){
-            self.m_output.push_str("\t; Boiler plate for empty script\n");
+            self.m_output.push_str(&Self::generate_comment("Boiler plate for empty script"));
             self.m_output.push_str(TARGET_ARCH.get_exit_instr());
             self.m_output.push_str("\n");
         }
@@ -52,18 +66,20 @@ impl Generator {
     }
     
     fn generate_exit(&mut self, exit: &NodeExit){
-        self.m_output.push_str("\t; Exit call \n");
-        self.m_output.push_str(&format!("\t; Exit Code = {}\n", exit.expr));
+        self.m_output.push_str(&Self::generate_comment("Exit call"));
+        self.m_output.push_str(&Self::generate_comment(&format!("Exit Code = {}", exit.expr)));
         self.generate_arithmetic_expr(&exit.expr);
         self.pop(TARGET_ARCH.get_exit_reg().to_string());
-        self.m_output.push_str(&format!("\t{}\n", TARGET_ARCH.get_exit_instr()));
-        self.m_output.push_str("\t; Exit end call\n\n");
+        self.m_output.push_str("\n\t");
+        self.m_output.push_str(TARGET_ARCH.get_exit_instr());
+        self.m_output.push_str("\n");
+        self.m_output.push_str(&Self::generate_comment("Exit end call"));
     }
     
     fn generate_id(&mut self, var: &NodeVariableAssignment) {
-        self.m_output.push_str("\t; VarAssignment\n");
+        self.m_output.push_str(&Self::generate_comment("VarAssignment"));
         if let Token::ID {name, ..}  = &var.variable{
-            self.m_output.push_str(&format!("\t; {var}\n"));
+            self.m_output.push_str(&Self::generate_comment(&format!("{var}")));
             self.generate_arithmetic_expr(&var.value);
             self.m_id_names.insert((name.clone(), self.m_scope_depth), self.m_stack_size-1);
         }
@@ -105,6 +121,9 @@ impl Generator {
                         let offset = self.m_stack_size.checked_sub(1 + *(stack_loc))
                             .expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
                         self.m_output.push_str(&format!("\t; Recuperate {name}'s value from stack\n\t{}\n", TARGET_ARCH.get_load_variable_instr(offset)));
+
+                        self.m_output.push_str(&Self::generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", TARGET_ARCH.get_load_variable_instr(offset))));
+
                         if cfg!(target_arch = "x86_64") {
                             self.push("rax");
                         } else if cfg!(target_arch = "aarch64") {
@@ -203,14 +222,22 @@ impl Generator {
     ) {
         self.process_operand(operand);
 
-        self.pop("rax".to_string());
+        let acc_reg = if cfg!(target_arch = "x86_64") {
+            "rax"
+        } else if cfg!(target_arch = "aarch64") {
+            "x0"
+        } else {
+            "rax" // default fallback
+        };
+
+        self.pop(acc_reg.to_string());
 
         let instr_code = instruction_data.2.join("\n\t");
         self.m_output.push_str("\t");
         self.m_output.push_str(&instr_code);
         self.m_output.push_str("\n");
 
-        self.push("rax");
+        self.push(acc_reg);
     }
     
     fn process_binary_operation(
@@ -269,7 +296,11 @@ impl Generator {
         if cfg!(target_arch = "x86_64") {
             self.m_output.push_str(&format!("\tpush {}\n", reg));
         } else if cfg!(target_arch = "aarch64") {
-            self.m_output.push_str(&format!("\tsub sp, sp, #8\n\tstr {}, [sp]\n", reg));
+            if cfg!(target_os = "linux") {
+                self.m_output.push_str(&format!("\tsub sp, sp, #8\n\tstr {}, [sp]\n", reg));
+            } else {
+                self.m_output.push_str(&format!("\tsub sp, sp, #8\n\tstr {}, [sp]\n", reg));
+            }
         }
         self.m_stack_size += 1;
     }
@@ -278,7 +309,11 @@ impl Generator {
         if cfg!(target_arch = "x86_64") {
             self.m_output.push_str(&format!("\tpop {}\n", reg));
         } else if cfg!(target_arch = "aarch64") {
-            self.m_output.push_str(&format!("\tldr {}, [sp]\n\tadd sp, sp, #8\n", reg));
+            if cfg!(target_os = "linux") {
+                self.m_output.push_str(&format!("\tldr {}, [sp]\n\tadd sp, sp, #8\n", reg));
+            } else {
+                self.m_output.push_str(&format!("\tldr {}, [sp]\n\tadd sp, sp, #8\n", reg));
+            }
         }
         self.m_stack_size -= 1;
     }    
