@@ -10,10 +10,11 @@ use super::nodes::{
 };
 use super::parser_logger::{ParserErrorType, ParserLogger};
 use crate::compiler::tokenizer::{Operator, Token};
+use crate::compiler::parser::ExpressionFactory;
+use super::token_stream::TokenStream;
 use either::{Either, Left, Right};
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-use super::token_stream::TokenStream;
 
 pub struct Parser{ 
     m_token_stream: TokenStream,
@@ -152,83 +153,7 @@ impl Parser {
     }
 
     fn parse_arithmetic_expr(&mut self) -> Option<Either<Box<NodeArithmeticOperation>, NodeBaseExpr>> {
-        let polish = self.create_reverse_polish_expr();
-        let mut expr_stack: Vec<NodeArithmeticExpr> = Vec::new();
-        if let Some(p) = polish{
-            for token in p{
-                match token {
-                    Token::ID { .. } => {
-                        expr_stack.push(NodeArithmeticExpr::Base(NodeBaseExpr::ID(token.clone())));
-                    },
-                    Token::Number { .. } => {
-                        expr_stack.push(NodeArithmeticExpr::Base(NodeBaseExpr::Num(token.clone())));
-                    },
-                    Token::Boolean { .. } => {
-                        expr_stack.push(NodeArithmeticExpr::Base(NodeBaseExpr::Bool(token.clone())));
-                    },
-                    Token::Operator(ref op_token) => {
-                        let rhs = expr_stack.pop();
-                        let lhs = expr_stack.pop();
-
-                        if lhs.is_none() || rhs.is_none() {
-                            self.log_error(ParserErrorType::ErrMissingOperand, Some(&token));
-                            return None;
-                        }
-
-                        // For logical operators, make sure that both operands are booleans.
-                        match op_token {
-                            Operator::And { .. } | Operator::Or { .. } | Operator::Xor { .. } => {
-                                if let (Some(ref lhs_expr), Some(ref rhs_expr)) = (lhs.as_ref(), rhs.as_ref()) {
-                                    if let Err(err) = self.type_check_logical_operands(lhs_expr, rhs_expr) {
-                                        self.log_error(ParserErrorType::ErrTypeMismatch, Some(&token));
-                                        return None;
-                                    }
-                                }
-                            },
-                            _ => {}
-                        }
-
-                        // Helper function to construct the operation
-                        let create_operation = |lhs: NodeArithmeticExpr, rhs: NodeArithmeticExpr| {
-
-                            let lhs_node = match lhs {
-                                NodeArithmeticExpr::Base(base) => Right(base),
-                                NodeArithmeticExpr::Operation(operation) => Left(Box::new(operation))
-                            };
-                            let rhs_node = match rhs {
-                                NodeArithmeticExpr::Base(base) => Right(base),
-                                NodeArithmeticExpr::Operation(operation) => Left(Box::new(operation))
-                            };
-                            NodeArithmeticExpr::Operation(NodeArithmeticOperation {
-                                lhs: lhs_node,
-                                rhs: rhs_node,
-                                op: token,
-                            })
-                        };
-                        
-                        if matches!(rhs, None) || matches!(lhs, None) {
-                            return None;
-                        }
-
-                        let operation_node = create_operation(lhs.unwrap(), rhs.unwrap());
-                        expr_stack.push(operation_node);
-                    }
-                    _ => {
-                        self.log_error(ParserErrorType::ErrUnexpectedToken, None);
-                        return None;
-                    }
-                }
-            }
-            match expr_stack.pop(){
-                Some(NodeArithmeticExpr::Base(base)) => {Some(Right(base))}
-                Some(NodeArithmeticExpr::Operation(op)) => {Some(Left(Box::new(op)))}
-                None => {None},
-            }
-        } else { 
-            None
-        }
-        
-        
+        ExpressionFactory::new(&mut self.m_token_stream, self.m_logger.clone()).create()
     }
 
     fn create_reverse_polish_expr(&mut self) -> Option<VecDeque<Token>>{

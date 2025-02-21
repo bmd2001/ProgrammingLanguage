@@ -2,6 +2,7 @@ mod parser;
 mod nodes;
 mod parser_logger;
 mod token_stream;
+mod expression_factory;
 
 pub use nodes::{
     NodeProgram,
@@ -22,4 +23,8 @@ pub use parser::{
 pub use parser_logger::{
     ParserLogger,
     ParserErrorType
+};
+
+pub use expression_factory::{
+    ExpressionFactory
 };

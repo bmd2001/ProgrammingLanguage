@@ -1,4 +1,5 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
+use crate::compiler::tokenizer::Token;
 use crate::compiler::logger::Logger;
 
 
@@ -26,6 +27,11 @@ impl ParserLogger {
                 self.report_error(error.as_str(), span)
             }
         }
+    }
+    
+    pub fn test(&mut self, error: ParserErrorType, token: &Token) {
+        let span : (usize, (usize, usize)) = token.get_span();
+        self.log_error(error, span);
     }
 }
 
