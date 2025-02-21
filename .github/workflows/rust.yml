@@ -1,0 +1,90 @@
+name: Rust
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        arch: [x86_64, aarch64]
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+            rust_target: x86_64-unknown-linux-gnu
+          - os: ubuntu-latest
+            arch: aarch64
+            rust_target: aarch64-unknown-linux-gnu
+          - os: macos-latest
+            arch: x86_64
+            rust_target: x86_64-apple-darwin
+          - os: macos-latest
+            arch: aarch64
+            rust_target: aarch64-apple-darwin
+
+    steps:
+      - name: Work around spurious network errors in curl 8.0
+        run: |
+          if rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then
+            echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.rust_target }}
+
+      - name: Install build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt update && sudo apt install -y build-essential gcc
+
+      - name: Install NASM
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
+      - name: Install dependencies (Linux aarch64)
+        if: matrix.arch == 'aarch64' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install -y gcc-aarch64-linux-gnu
+
+      - name: Install Xcode Command Line Tools (macOS)
+        if: runner.os == 'macOS'
+        run: xcode-select --install || true
+
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.rust_target }}
+
+      - name: Install cross
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
+        run: cargo install cross || true
+
+      - name: Debug File System
+        run: |
+          pwd
+          ls -lah
+          ls -lah .github/workflows
+          ls -R
+
+      - name: Run
+        run: |
+          RUST_BACKTRACE=1 cargo build --target ${{ matrix.rust_target }} --color=always --verbose --profile dev
+          RUST_BACKTRACE=1 cargo run .github/workflows/run.brs --target ${{ matrix.rust_target }} --verbose -- --outdir target/debug/
+      - name: Test
+        run: |
+          if [ "${{ matrix.rust_target }}" = "aarch64-unknown-linux-gnu" ]; then
+            cross test --target ${{ matrix.rust_target }} --verbose --tests
+          else
+            cargo build --color=always --verbose --tests --profile test
+            cargo test --target ${{ matrix.rust_target }} --verbose --tests
+          fi

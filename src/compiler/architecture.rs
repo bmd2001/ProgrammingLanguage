@@ -50,7 +50,50 @@ impl Arch {
     pub fn get_exponentiation_instr(&self) -> &str {
         match self {
             Arch::X86_64 => "mov rax, 1\n\t{exp_label}:\n\tcmp rcx, 0\n\tje {done_label}\n\timul rax, rdx\n\tdec rcx\n\tjmp {exp_label}\n\t{done_label}:",
-            Arch::AArch64 => "mov x0, 1\n\texp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\n\tdone_label:",
+            Arch::AArch64 => {
+                if cfg!(target_os = "linux") {
+                    "mov x0, #1\n\texp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\n\tdone_label:"
+                } else {
+                    "mov x0, 1\n\texp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\n\tdone_label:"
+                }
+            }
+        }
+    }
+
+    pub fn get_mov_number_instr(&self, value: &str) -> String {
+        match self {
+            Arch::X86_64 => format!("mov rax, {}", value),
+            Arch::AArch64 => {
+                if cfg!(target_os = "linux") {
+                    format!("mov x0, #{}", value)
+                } else {
+                    format!("mov x0, {}", value)
+                }
+            }
+        }
+    }
+
+    pub fn get_mov_boolean_instr(&self, value: bool) -> String {
+        match self {
+            Arch::X86_64 => {
+                if value { "mov rax, 1".to_string() } else { "mov rax, 0".to_string() }
+            },
+            Arch::AArch64 => {
+                if value { "mov x0, 1".to_string() } else { "mov x0, 0".to_string() }
+            },
+        }
+    }
+
+    pub fn get_load_variable_instr(&self, offset: usize) -> String {
+        match self {
+            Arch::X86_64 => format!("mov rax, [rsp + {}]", offset * 8),
+            Arch::AArch64 => {
+                if cfg!(target_os = "linux") {
+                    format!("ldr x0, [sp]")
+                } else {
+                    format!("ldr x0, [sp]")
+                }
+            }
         }
     }
 
@@ -106,35 +149,19 @@ impl Arch {
     }
 
     pub fn get_exit_instr(&self) -> &str {
-        match self {
-            //Todo To call an exit syscall, the value loaded into rax changes between Linux and MacOS
-            Arch::X86_64 => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
-            Arch::AArch64 => "mov x8, 93\n\tmov x0, 0\n\tsvc #0",
+        #[cfg(target_os = "linux")]
+        {
+            match self {
+                Arch::X86_64 => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
+                Arch::AArch64 => "mov x8, #93\n\tmov x0, #0\n\tsvc #0",
+            }
         }
-    }
-
-    pub fn get_mov_number_instr(&self, value: &str) -> String {
-        match self {
-            Arch::X86_64 => format!("mov rax, {}", value),
-            Arch::AArch64 => format!("mov x0, {}", value),
-        }
-    }
-
-    pub fn get_mov_boolean_instr(&self, value: bool) -> String {
-        match self {
-            Arch::X86_64 => {
-                if value { "mov rax, 1".to_string() } else { "mov rax, 0".to_string() }
-            },
-            Arch::AArch64 => {
-                if value { "mov x0, 1".to_string() } else { "mov x0, 0".to_string() }
-            },
-        }
-    }
-
-    pub fn get_load_variable_instr(&self, offset: usize) -> String {
-        match self {
-            Arch::X86_64 => format!("mov rax, [rsp + {}]", offset * 8),
-            Arch::AArch64 => format!("ldr x0, [sp, #{}]", offset * 8),
+        #[cfg(target_os = "macos")]
+        {
+            match self {
+                Arch::X86_64 => "mov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall",
+                Arch::AArch64 => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80",
+            }
         }
     }
 }
