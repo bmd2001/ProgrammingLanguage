@@ -1,7 +1,8 @@
-use BRS::compiler::parser::{NodeStmt, NodeVariableAssignment, NodeArithmeticExpr, NodeBaseExpr, Parser};
+use BRS::compiler::logger::Logger;
+use BRS::compiler::parser::{NodeStmt, NodeVariableAssignment, NodeArithmeticExpr, NodeBaseExpr, Parser, ParserLogger};
 use BRS::compiler::tokenizer::{Token, Tokenizer};
 use once_cell::sync::Lazy;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 // A global mutable Tokenizer wrapped in a Mutex
 static TOKENIZER: Lazy<Mutex<Tokenizer>> = Lazy::new(|| {
@@ -32,7 +33,8 @@ static NOT_VALID_SCOPE_INPUTS: Lazy<Vec<&str>> = Lazy::new(|| vec![
 fn utility_create_parser(stmts: &str) -> Parser{
     let mut tokenizer = TOKENIZER.lock().unwrap();
     tokenizer.tokenize(stmts);
-    Parser::new(tokenizer.get_tokens(), "".to_string(), stmts.to_string())
+    let logger = Arc::new(Mutex::new(ParserLogger::new("".to_string(), stmts.to_string())));
+    Parser::new(tokenizer.get_tokens(), logger)
 }
 
 #[test]

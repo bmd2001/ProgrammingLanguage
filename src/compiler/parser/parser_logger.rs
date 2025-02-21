@@ -1,18 +1,31 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
+use crate::compiler::tokenizer::Token;
 use crate::compiler::logger::Logger;
+
 
 pub struct ParserLogger{
     file_name: String,
-    source: Source
+    source: Source,
+    errors: Vec<(String, (usize, (usize, usize)))>
 }
 
 impl ParserLogger {
-    pub fn log_errors(&self, errors: Vec<(ParserErrorType, (usize, (usize, usize)))>){
+    pub fn failed_parsing(&self) -> bool {
+        !self.errors.is_empty()
+    }
+
+    pub fn log_error(&mut self, error: ParserErrorType, token: &Token) {
+        let span : (usize, (usize, usize)) = token.get_span();
+        let res = (error.message().to_string(), span);
+        self.errors.push(res);
+    }
+    
+    pub fn report_errors(&self){
         // Check if the code is being run with a test profile
         let is_test_profile = std::thread::current().name().map_or(false, |name| name.starts_with("test"));
         if !is_test_profile {
-            for (error, span) in errors {
-                self.log_error(error.message(), span)
+            for (error, span) in self.errors.clone() {
+                self.report_error(error.as_str(), span)
             }
         }
     }
@@ -49,10 +62,10 @@ impl ParserErrorType {
 
 impl Logger for ParserLogger{
     fn new(file_name: String, code: String) -> ParserLogger{
-        ParserLogger{ file_name, source: Source::from(code)}
+        ParserLogger{ file_name, source: Source::from(code), errors: vec![] }
     }
 
-    fn log_error(&self, message: &str, span: (usize, (usize, usize))) {
+    fn report_error(&self, message: &str, span: (usize, (usize, usize))) {
         let (line_i, (row_start, row_end)) = span;
         let offset = self.source.line(line_i).expect("Custom Span logic returned wrong line ID").offset();
         Report::build(ReportKind::Error, (self.file_name.as_str(), offset + row_start..offset + row_end))
