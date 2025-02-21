@@ -143,7 +143,7 @@ impl TokenStream{
     pub fn advance_stmt(&mut self, report: bool){
         while self.peek(0).is_some() && report{
             if let Ok(mut logger) = self.m_logger.lock() {
-                logger.log_error(ParserErrorType::ErrUnexpectedToken, self.peek(0).unwrap().get_span());
+                logger.log_error(ParserErrorType::ErrUnexpectedToken, &self.peek(0).unwrap());
             }
             self.advance(1);
         }

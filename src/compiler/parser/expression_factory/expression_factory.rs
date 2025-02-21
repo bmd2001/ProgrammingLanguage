@@ -98,6 +98,6 @@ impl<'a> ExpressionFactory<'a> {
     
     fn log_error(&self, error: ParserErrorType, token: &Token){
         let mut logger = self.m_logger.lock().unwrap();
-        logger.test(error, token);
+        logger.log_error(error, token);
     }
 }

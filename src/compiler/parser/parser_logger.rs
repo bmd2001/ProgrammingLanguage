@@ -14,7 +14,8 @@ impl ParserLogger {
         !self.errors.is_empty()
     }
 
-    pub fn log_error(&mut self, error: ParserErrorType, span:(usize, (usize, usize))) {
+    pub fn log_error(&mut self, error: ParserErrorType, token: &Token) {
+        let span : (usize, (usize, usize)) = token.get_span();
         let res = (error.message().to_string(), span);
         self.errors.push(res);
     }
@@ -27,11 +28,6 @@ impl ParserLogger {
                 self.report_error(error.as_str(), span)
             }
         }
-    }
-    
-    pub fn test(&mut self, error: ParserErrorType, token: &Token) {
-        let span : (usize, (usize, usize)) = token.get_span();
-        self.log_error(error, span);
     }
 }
 
