@@ -52,7 +52,7 @@ impl Parser {
         let mut offset = 0;
         while !matches!(self.m_token_stream.peek(offset), None) && !matches!(self.m_token_stream.peek(offset), Some(Token::NewLine {..})){
             if matches!(self.m_token_stream.peek(offset), Some(Token::Err { .. })){
-                self.log_error(ParserErrorType::ErrUnexpectedToken, Some(&self.m_token_stream.peek(offset).unwrap().clone()));
+                self.log_error(ParserErrorType::ErrUnexpectedToken, &self.m_token_stream.peek(offset).unwrap());
                 return true;
             }
             offset += 1;
@@ -81,7 +81,7 @@ impl Parser {
         // Check if the second token is an opening parenthesis
         if !matches!(self.m_token_stream.peek(1), Some(Token::OpenBracket { .. })) {
             let token = self.m_token_stream.peek(0).unwrap();
-            self.log_error(ParserErrorType::ErrExitOpenBracketMissing, Some(&token.clone()));
+            self.log_error(ParserErrorType::ErrExitOpenBracketMissing, &token);
             return None;
         }
         // Advance past 'exit' and '(' tokens
@@ -92,7 +92,7 @@ impl Parser {
 
         // Check for closing parenthesis
         if !matches!(self.m_token_stream.peek(0), Some(Token::ClosedBracket {..})) {
-            self.log_error(ParserErrorType::ErrExitClosedBracketMissing, None);
+            self.log_error(ParserErrorType::ErrExitClosedBracketMissing, &self.m_token_stream.peek_back(1).unwrap());
             return None;
         }
 
@@ -104,21 +104,6 @@ impl Parser {
             Some(Left(operation)) => {Some(NodeExit { expr: NodeArithmeticExpr::Operation(*operation) })}
             Some(Right(base)) => {Some(NodeExit { expr: NodeArithmeticExpr::Base(base) })}
             None => {None}
-        }
-    }
-
-    fn type_check_logical_operands(&self, lhs: &NodeArithmeticExpr, rhs: &NodeArithmeticExpr) -> Result<(), String> {
-        // A helper function to check if an expression is a boolean literal.
-        fn is_boolean(expr: &NodeArithmeticExpr) -> bool {
-            match expr {
-                NodeArithmeticExpr::Base(NodeBaseExpr::Bool(_)) => true,
-                _ => false,
-            }
-        }
-        if is_boolean(lhs) && is_boolean(rhs) {
-            Ok(())
-        } else {
-            Err("Logical operators can only be applied to booleans".to_string())
         }
     }
     
@@ -155,61 +140,6 @@ impl Parser {
     fn parse_arithmetic_expr(&mut self) -> Option<Either<Box<NodeArithmeticOperation>, NodeBaseExpr>> {
         ExpressionFactory::new(&mut self.m_token_stream, self.m_logger.clone()).create()
     }
-
-    fn create_reverse_polish_expr(&mut self) -> Option<VecDeque<Token>>{
-        let mut stack: Vec<Operator> = Vec::new();
-        let mut polish: VecDeque<Token> = VecDeque::new();
-        while let Some(token) = self.m_token_stream.peek(0) {
-            match token{
-                Token::ID { .. } | Token::Number { .. } | Token::Boolean { .. } => {
-                    polish.push_back(token.clone());
-                },
-                Token::Operator(op) => {
-                    match op{
-                        Operator::OpenBracket { .. } => {
-                            stack.push(op);
-                        }
-                        Operator::ClosedBracket { .. } => {
-                            while !matches!(stack.last(), Some(Operator::OpenBracket {..})) {
-                                if stack.is_empty() {
-                                    self.log_error(ParserErrorType::ErrExpressionOpenBracketMissing, Some(&token.clone()));
-                                    return None;
-                                }
-                                let op = stack.pop().unwrap();
-                                polish.push_back(Token::Operator(op))
-                            }
-                            stack.pop();
-                        }
-                        _ => {
-                            while let Some(operator) = stack.pop() {
-                                if matches!(operator, Operator::OpenBracket {..}) || (operator.precedence() <= op.clone().precedence() && (operator.precedence() != op.clone().precedence() || op.clone().associativity().eq("Right"))){
-                                    stack.push(operator);
-                                    break;
-                                }
-                                polish.push_back(Token::Operator(operator));
-                            }
-                            stack.push(op);
-                        }
-                    }
-                },
-                Token::NewLine {..} | Token::ClosedBracket {..} => {
-                    break;
-                }
-                _ => {
-                    self.log_error(ParserErrorType::ErrUnexpectedToken, Some(&token.clone()));
-                },
-            }
-            self.m_token_stream.advance_skip_tokens(1, true, |token| matches!(token, Some(Token::WhiteSpace {..})));
-        }
-        while let Some(i) = stack.pop(){
-            if let Operator::OpenBracket { span } = i{
-                self.log_error(ParserErrorType::ErrExpressionClosedBracketMissing, Some(&Token::OpenBracket { span }));
-                return None;
-            }
-            polish.push_back(Token::Operator(i));
-        }
-        Some(polish)
-    }
     
     fn parse_scope(&mut self) -> Option<NodeScope>{
         if !matches!(self.m_token_stream.peek(0), Some(Token::OpenCurlyBracket { .. })){
@@ -232,49 +162,13 @@ impl Parser {
             self.m_token_stream.advance(1);
             return Some(NodeScope { stmts })
         }
-        self.log_error(ParserErrorType::ErrScopeClosesCurlyBracketMissing, Some(&Token::OpenCurlyBracket { span: jump_back }));
+        self.log_error(ParserErrorType::ErrScopeClosesCurlyBracketMissing, &Token::OpenCurlyBracket { span: jump_back });
         None
     }
 
-    fn log_error(&mut self, parser_error_type: ParserErrorType, token: Option<&Token>){
-        let mut span : (usize, (usize, usize)) = (0, (0, 0));
-        match parser_error_type {
-            ParserErrorType::ErrInvalidStatement => {
-                let (stmt_num, _) = token.unwrap().get_span();
-                self.m_token_stream.advance_stmt(false);
-                let (_, (_, stmt_end)) = self.m_token_stream.peek_back(1).unwrap().get_span();
-                span = (stmt_num, (0, stmt_end+1));
-            }
-            ParserErrorType::ErrExitOpenBracketMissing => {
-                if let Some(Token::Exit {span: (exit_line, (_, exit_end))}) = token{
-                    span = (*exit_line, (*exit_end, *exit_end))
-                }
-            }
-            ParserErrorType::ErrExitClosedBracketMissing => {
-                let token = self.m_token_stream.peek_back(1).unwrap();
-                span = token.get_span();
-            }
-            ParserErrorType::ErrUnexpectedToken => {
-                span = token.unwrap().get_span();
-            }
-            ParserErrorType::ErrExpressionOpenBracketMissing => {
-                span = token.unwrap().get_span();
-            }
-            ParserErrorType::ErrExpressionClosedBracketMissing => {
-                // TODO check for correct parenthesis mismatching detection
-                span = token.unwrap().get_span();
-            }
-            ParserErrorType::ErrMissingOperand => {
-                span = token.unwrap().get_span();
-            }
-            ParserErrorType::ErrTypeMismatch => {
-                span = token.unwrap().get_span();
-            },
-            ParserErrorType::ErrScopeClosesCurlyBracketMissing => span = token.unwrap().get_span()
-        }
-        if let Ok(mut logger) = self.m_logger.lock(){
-            logger.log_error(parser_error_type, span);
-        }
+    fn log_error(&self, error: ParserErrorType, token: &Token){
+        let mut logger = self.m_logger.lock().unwrap();
+        logger.test(error, token);
     }
     
     fn flush_errors(&mut self) -> bool{
