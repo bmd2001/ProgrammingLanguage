@@ -12,7 +12,7 @@ pub struct ExpressionFactory<'a> {
 }
 
 impl<'a> ExpressionFactory<'a> {
-    pub fn new(line: &'a mut TokenStream, logger: Arc<Mutex<ParserLogger>>) -> ExpressionFactory<'a> {
+    pub(crate) fn new(line: &'a mut TokenStream, logger: Arc<Mutex<ParserLogger>>) -> ExpressionFactory<'a> {
         ExpressionFactory {
             m_line_stream: line,
             m_logger: logger,
