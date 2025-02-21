@@ -12,6 +12,7 @@ use super::parser_logger::{failed_parsing, global_log_errors, ParserErrorType};
 use crate::compiler::tokenizer::{Operator, Token};
 use either::{Either, Left, Right};
 use std::collections::VecDeque;
+use crate::compiler::parser::global_report_parser_error;
 use super::token_stream::TokenStream;
 
 pub struct Parser { 
@@ -71,11 +72,6 @@ impl Parser {
         }
         else if let Some(scope_node) = self.parse_scope(){ 
             Some(NodeStmt::Scope(scope_node))
-        }
-        else if prev_len == self.m_errors.len(){
-            let token = self.m_token_stream.peek(0).unwrap();
-            self.report_error(ParserErrorType::ErrInvalidStatement, Some(&token.clone()));
-            return None;
         }
         else { None }
     }
@@ -355,7 +351,7 @@ impl Parser {
             },
             ParserErrorType::ErrScopeClosesCurlyBracketMissing => span = token.unwrap().get_span()
         }
-        self.m_errors.push((parser_error_type, span));
+        global_report_parser_error((parser_error_type, span));
     }
 
 }

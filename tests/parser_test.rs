@@ -1,4 +1,4 @@
-use BRS::compiler::parser::{NodeStmt, NodeVariableAssignment, NodeArithmeticExpr, NodeBaseExpr, Parser};
+use BRS::compiler::parser::{NodeStmt, NodeVariableAssignment, NodeArithmeticExpr, NodeBaseExpr, Parser, init_parser_logger};
 use BRS::compiler::tokenizer::{Token, Tokenizer};
 use once_cell::sync::Lazy;
 use std::sync::Mutex;
@@ -31,8 +31,9 @@ static NOT_VALID_SCOPE_INPUTS: Lazy<Vec<&str>> = Lazy::new(|| vec![
 
 fn utility_create_parser(stmts: &str) -> Parser{
     let mut tokenizer = TOKENIZER.lock().unwrap();
+    init_parser_logger("".to_string(), stmts.to_string());
     tokenizer.tokenize(stmts);
-    Parser::new(tokenizer.get_tokens(), "".to_string(), stmts.to_string())
+    Parser::new(tokenizer.get_tokens())
 }
 
 #[test]

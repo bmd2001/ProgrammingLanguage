@@ -43,6 +43,10 @@ impl TokenStream{
                 _ => line.push(token)
             }
         }
+        
+        if !line.is_empty(){
+            m_tokens.push(trim_whitespace(line));
+        }
 
         TokenStream{ m_tokens, m_index: 0, m_stmt_index: 0}
     }
@@ -85,7 +89,7 @@ impl TokenStream{
     */
 
     pub fn is_end(&self) -> bool{
-        self.m_stmt_index >= self.m_tokens.len() &&
+        self.m_stmt_index+1 >= self.m_tokens.len() &&
             self.m_tokens.last().map_or(true,
                                         |line| self.m_index >= line.len())
     }
