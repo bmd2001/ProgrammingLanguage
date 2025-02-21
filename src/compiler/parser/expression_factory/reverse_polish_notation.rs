@@ -14,7 +14,7 @@ impl<'a> ReversePolishNotation<'a>{
     pub fn new(line: &'a mut TokenStream, m_logger: Arc<Mutex<ParserLogger>>) -> ReversePolishNotation{
         ReversePolishNotation{m_line_stream: line, m_logger, m_stack: vec![], m_polish: vec![]}
     }
-    
+
     pub fn create(&mut self) -> Option<Vec<Token>>{
         while let Some(token) = self.m_line_stream.peek(0) {
             match token{
@@ -45,15 +45,15 @@ impl<'a> ReversePolishNotation<'a>{
         Some(self.m_polish.clone())
     }
 
-    fn handle_operators(&mut self, op: Operator) -> bool{
-        match op{
+    fn handle_operators(&mut self, rhs_op: Operator) -> bool{
+        match rhs_op {
             Operator::OpenBracket { .. } => {
-                self.m_stack.push(op);
+                self.m_stack.push(rhs_op);
             }
             Operator::ClosedBracket { .. } => {
                 while !matches!(self.m_stack.last(), Some(Operator::OpenBracket {..})) {
                     if self.m_stack.is_empty() {
-                        self.log_error(ParserErrorType::ErrExpressionOpenBracketMissing, &Token::Operator(op));
+                        self.log_error(ParserErrorType::ErrExpressionOpenBracketMissing, &Token::Operator(rhs_op));
                         return false;
                     }
                     let op = self.m_stack.pop().unwrap();
@@ -62,14 +62,18 @@ impl<'a> ReversePolishNotation<'a>{
                 self.m_stack.pop();
             }
             _ => {
-                while let Some(operator) = self.m_stack.pop() {
-                    if matches!(operator, Operator::OpenBracket {..}) || (operator.precedence() <= op.clone().precedence() && (operator.precedence() != op.clone().precedence() || op.clone().associativity().eq("Right"))){
-                        self.m_stack.push(operator);
+                while let Some(lhs_op) = self.m_stack.pop() {
+                    let lhs_is_open_bracket = matches!(lhs_op, Operator::OpenBracket {..});
+                    let lhs_geq_precedence = lhs_op.precedence() >= rhs_op.precedence();
+                    let not_eq_precedence = lhs_op.precedence() != rhs_op.precedence();
+                    let rhs_right_associative = rhs_op.associativity().eq("Right");
+                    if lhs_is_open_bracket || (lhs_geq_precedence && (not_eq_precedence || rhs_right_associative)){
+                        self.m_stack.push(lhs_op);
                         break;
                     }
-                    self.m_polish.push(Token::Operator(operator));
+                    self.m_polish.push(Token::Operator(lhs_op));
                 }
-                self.m_stack.push(op);
+                self.m_stack.push(rhs_op);
             }
         }
         true
