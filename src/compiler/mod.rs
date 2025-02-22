@@ -4,6 +4,7 @@ pub mod generator;
 mod architecture;
 mod arithmetic_instructions;
 pub mod logger;
+mod stack_handler;
 
 use crate::compiler::tokenizer::{Token, Tokenizer};
 use crate::compiler::parser::{NodeProgram, Parser};
