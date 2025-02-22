@@ -86,7 +86,7 @@ impl Arch {
 
     pub fn get_load_variable_instr(&self, offset: usize) -> String {
         match self {
-            Arch::X86_64 => format!("mov rax, [rsp + {}]", offset * 8),
+            Arch::X86_64 => format!("mov rax, [rsp + {}]", offset),
             Arch::AArch64 => {
                 if cfg!(target_os = "linux") {
                     format!("ldr x0, [sp]")

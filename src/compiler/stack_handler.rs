@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::ops::Sub;
 
 struct Variable{
     m_name: String,
@@ -34,10 +33,9 @@ impl StackHandler{
         }
     }
     
-    pub fn add_variable(&mut self, name: String, r#type: String, scope_depth: usize){
+    pub fn add_variable(&mut self, name: String, r#type: String){
         self.m_stack_size += 8;
         let variable = Variable::new(name.clone(), r#type, self.m_scope_depth, self.m_stack_size);
-        self.m_scope_depth = scope_depth;
         self.m_variables.entry(name).or_insert(vec![]).push(variable);
     }
     
@@ -47,7 +45,16 @@ impl StackHandler{
         self.m_stack_size.checked_sub(variable_pos).expect("Stack size logic not working")
     }
     
-    pub fn pop_scope_variable(&mut self){
+    pub fn increase_scope_depth(&mut self){
+        self.m_scope_depth += 1;
+    }
+    
+    pub fn decrease_scope_depth(&mut self){
+        self.pop_scope_variables();
+        self.m_scope_depth -= 1;
+    }
+
+    fn pop_scope_variables(&mut self){
         for (_, variable) in self.m_variables.iter_mut(){
             while variable.last().is_some_and(|var| var.m_scope_depth == self.m_scope_depth){
                 variable.pop();

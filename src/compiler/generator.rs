@@ -1,11 +1,11 @@
 use std::any::type_name;
-use std::collections::HashMap;
 use either::Either;
 use either::Either::{Left, Right};
 use crate::compiler::architecture::TARGET_ARCH;
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::arithmetic_instructions::{ArithmeticInstructions};
+use crate::compiler::stack_handler::StackHandler;
 
 fn type_name_of<T>(_: &T) -> &'static str {
     type_name::<T>()
@@ -14,15 +14,14 @@ fn type_name_of<T>(_: &T) -> &'static str {
 pub struct Generator {
     m_prog: NodeProgram,
     m_output: String,
-    m_id_names: HashMap<(String, usize), usize>,
+    m_stack: StackHandler,
     m_stack_size: usize,
     m_num_exponentials: usize,
-    m_scope_depth: usize,
 }
 
 impl Generator {
     pub fn new(prog : NodeProgram) -> Self {
-        Generator {m_prog: prog, m_output: "".to_string(), m_id_names: HashMap::new(), m_stack_size: 0, m_num_exponentials: 0, m_scope_depth: 0}
+        Generator {m_prog: prog, m_output: "".to_string(), m_stack: StackHandler::new(), m_stack_size: 0, m_num_exponentials: 0}
     }
 
     pub fn generate_comment(comment: &str) -> String {
@@ -81,17 +80,17 @@ impl Generator {
         if let Token::ID {name, ..}  = &var.variable{
             self.m_output.push_str(&Self::generate_comment(&format!("{var}")));
             self.generate_arithmetic_expr(&var.value);
-            self.m_id_names.insert((name.clone(), self.m_scope_depth), self.m_stack_size-1);
+            self.m_stack.add_variable(name.clone(), self.infer_type(&var.value).to_string());
         }
     }
     
     fn generate_scope(&mut self, scope: &NodeScope){
+        self.m_stack.increase_scope_depth();
         let stmts = scope.stmts.clone();
-        self.m_scope_depth += 1;
         for stmt in stmts {
             self.generate_stmt(&stmt);
         }
-        self.m_scope_depth -= 1;
+        self.m_stack.decrease_scope_depth();
     }
     
     fn generate_arithmetic_expr(&mut self, expr: &NodeArithmeticExpr){
@@ -117,20 +116,13 @@ impl Generator {
             }
             NodeBaseExpr::ID(token) => {
                 if let Token::ID { name, .. } = token {
-                    if let Some(stack_loc) = self.m_id_names.get(&(name.clone(), self.m_scope_depth)) {
-                        let offset = self.m_stack_size.checked_sub(1 + *(stack_loc))
-                            .expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
-                        self.m_output.push_str(&format!("\t; Recuperate {name}'s value from stack\n\t{}\n", TARGET_ARCH.get_load_variable_instr(offset)));
+                    let offset = self.m_stack.get_offset(name.clone());
+                    self.m_output.push_str(&Self::generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", TARGET_ARCH.get_load_variable_instr(offset))));
 
-                        self.m_output.push_str(&Self::generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", TARGET_ARCH.get_load_variable_instr(offset))));
-
-                        if cfg!(target_arch = "x86_64") {
-                            self.push("rax");
-                        } else if cfg!(target_arch = "aarch64") {
-                            self.push("x0");
-                        }
-                    } else {
-                        eprintln!("Variable {name} not defined");
+                    if cfg!(target_arch = "x86_64") {
+                        self.push("rax");
+                    } else if cfg!(target_arch = "aarch64") {
+                        self.push("x0");
                     }
                 } else {
                     eprintln!("Wrong Tokenization");
@@ -222,9 +214,7 @@ impl Generator {
     ) {
         self.process_operand(operand);
 
-        let acc_reg = if cfg!(target_arch = "x86_64") {
-            "rax"
-        } else if cfg!(target_arch = "aarch64") {
+        let acc_reg = if cfg!(target_arch = "aarch64") {
             "x0"
         } else {
             "rax" // default fallback
