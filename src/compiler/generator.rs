@@ -147,63 +147,56 @@ impl Generator {
     fn generate_arithmetic_op(&mut self, expr: &NodeArithmeticOperation) {
         let map = ArithmeticInstructions::new();
         match expr.clone().op{
-            Token::Operator(op_type) => {
-                match op_type{
-                    Operator::Plus { .. } => {
-                        let instr_data = map.get(&"Addition".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Addition", instr_data);
+            Operator::Plus { .. } => {
+                let instr_data = map.get(&"Addition".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Addition", instr_data);
+            }
+            Operator::Minus { .. } => {
+                let instr_data = map.get(&"Subtraction".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Subtraction" , instr_data);
+            }
+            Operator::Multiplication { .. }=> {
+                let instr_data = map.get(&"Multiplication".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Multiplication" , instr_data);
+            }
+            Operator::Division { .. } => {
+                let instr_data = map.get(&"Division".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Division" , instr_data);
+            },
+            Operator::Exponent { .. } => {
+                let instr_data = map.get(&"Exponentiation".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().rhs, expr.clone().lhs, "Exponentiation" , instr_data);
+            }
+            Operator::Modulus { .. } => {
+                let instr_data = map.get(&"Modulo".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Modulo" , instr_data);
+            }
+            Operator::Not { .. } => {
+                let instr_data = map.get(&"Not".to_string()).unwrap();
+                self.process_unary_operation(expr.clone().lhs, instr_data);
+            }
+            Operator::And { .. } | Operator::Or { .. } | Operator::Xor { .. } => {
+                if let (Some(lhs_expr), Some(rhs_expr)) = (Self::extract_expr(&expr.lhs), Self::extract_expr(&expr.rhs)) {
+                    if let Err(err) = self.type_check_logical_operands(&lhs_expr, &rhs_expr) {
+                        eprintln!("Error: {}", err);
+                        return;
                     }
-                    Operator::Minus { .. } => {
-                        let instr_data = map.get(&"Subtraction".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Subtraction" , instr_data);
-                    }
-                    Operator::Multiplication { .. }=> {
-                        let instr_data = map.get(&"Multiplication".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Multiplication" , instr_data);
-                    }
-                    Operator::Division { .. } => {
-                        let instr_data = map.get(&"Division".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Division" , instr_data);
-                    },
-                    Operator::Exponent { .. } => {
-                        let instr_data = map.get(&"Exponentiation".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().rhs, expr.clone().lhs, "Exponentiation" , instr_data);
-                    }
-                    Operator::Modulus { .. } => {
-                        let instr_data = map.get(&"Modulo".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Modulo" , instr_data);
-                    }
-                    Operator::Not { .. } => {
-                        let instr_data = map.get(&"Not".to_string()).unwrap();
-                        self.process_unary_operation(expr.clone().lhs, instr_data);
-                    }
-                    Operator::And { .. } | Operator::Or { .. } | Operator::Xor { .. } => {
-                        if let (Some(lhs_expr), Some(rhs_expr)) = (Self::extract_expr(&expr.lhs), Self::extract_expr(&expr.rhs)) {
-                            if let Err(err) = self.type_check_logical_operands(&lhs_expr, &rhs_expr) {
-                                eprintln!("Error: {}", err);
-                                return;
-                            }
-                        } else {
-                            eprintln!("Error: Missing operand for logical operator");
-                            return;
-                        }
-
-                        let op_str = match expr.op {
-                            Token::Operator(Operator::And { .. }) => "And",
-                            Token::Operator(Operator::Or { .. })  => "Or",
-                            Token::Operator(Operator::Xor { .. }) => "Xor",
-                            _ => unreachable!(),
-                        };
-
-                        let instr_data = map.get(&op_str.to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, op_str, instr_data);
-                    }
-                    _ => {}
+                } else {
+                    eprintln!("Error: Missing operand for logical operator");
+                    return;
                 }
+
+                let op_str = match expr.op {
+                    Operator::And { .. } => "And",
+                    Operator::Or { .. }  => "Or",
+                    Operator::Xor { .. } => "Xor",
+                    _ => unreachable!(),
+                };
+
+                let instr_data = map.get(&op_str.to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, op_str, instr_data);
             }
-            _ => {
-                eprintln!("{}", format!("Wrong Tokenization. Expecting an operator but got {}", type_name_of(&expr.op)))
-            }
+            _ => {}
         }
     }
 
@@ -334,7 +327,7 @@ impl Generator {
             NodeArithmeticExpr::Base(NodeBaseExpr::Bool(_)) => "bool",
             NodeArithmeticExpr::Base(NodeBaseExpr::Num(_)) => "num",
             NodeArithmeticExpr::Base(NodeBaseExpr::ID(_)) => "unknown",
-            NodeArithmeticExpr::Operation(_) => "unknown",
+            NodeArithmeticExpr::Operation(..) => "unknown",
         }
     }
 

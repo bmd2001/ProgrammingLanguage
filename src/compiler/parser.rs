@@ -183,7 +183,7 @@ impl Parser {
                         }
 
                         // Helper function to construct the operation
-                        let create_operation = |lhs: NodeArithmeticExpr, rhs: NodeArithmeticExpr| {
+                        let mut create_operation = |lhs: NodeArithmeticExpr, rhs: NodeArithmeticExpr| {
 
                             let lhs_node = match lhs {
                                 NodeArithmeticExpr::Base(base) => Right(base),
@@ -196,7 +196,8 @@ impl Parser {
                             NodeArithmeticExpr::Operation(NodeArithmeticOperation {
                                 lhs: lhs_node,
                                 rhs: rhs_node,
-                                op: token,
+                                op: *op_token,
+                                result_type: self.get_result_type(op_token)
                             })
                         };
                         
@@ -278,6 +279,18 @@ impl Parser {
             polish.push_back(Token::Operator(i));
         }
         Some(polish)
+    }
+    
+    fn get_result_type(&mut self, op: &Operator) -> ResultType{
+        let mut res = ResultType::Numeric;
+        match op{
+            Operator::And { .. } | 
+            Operator::Or { .. } | 
+            Operator::Xor { .. } |
+            Operator::Not { .. } => { res = ResultType::Boolean }
+            _ => {} 
+        }
+        res
     }
 
     fn parse_scope(&mut self) -> Option<NodeScope>{
@@ -463,9 +476,15 @@ pub enum NodeArithmeticExpr {
 pub(crate) struct NodeArithmeticOperation {
     pub(crate) lhs: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>,
     pub(crate) rhs: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>,
-    pub(crate) op: Token
+    pub(crate) op: Operator,
+    pub(crate) result_type: ResultType
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum ResultType{
+    Numeric,
+    Boolean
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeBaseExpr {
