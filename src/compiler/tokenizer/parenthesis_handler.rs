@@ -1,3 +1,4 @@
+use crate::compiler::span::Span;
 use super::operator::Operator;
 use super::token::Token;
 
@@ -21,7 +22,7 @@ impl ParenthesisHandler{
         self.m_bracket_depth = 0;
     }
 
-    pub fn emit_bracket_token(&mut self, span: (usize, (usize, usize)) , c: char) -> Token{
+    pub fn emit_bracket_token(&mut self, span: Span , c: char) -> Token{
         if c == '('{
             self.handle_open_bracket(span)
         }
@@ -32,7 +33,7 @@ impl ParenthesisHandler{
         }
     }
 
-    fn handle_open_bracket(&mut self, span: (usize, (usize, usize))) -> Token{
+    fn handle_open_bracket(&mut self, span: Span) -> Token{
         let mut res = Token::Operator(Operator::OpenBracket { span });
         if self.m_function_call{
             if self.m_bracket_depth == 0{
@@ -43,7 +44,7 @@ impl ParenthesisHandler{
         res
     }
 
-    fn handle_closed_bracket(&mut self, span: (usize, (usize, usize))) -> Token {
+    fn handle_closed_bracket(&mut self, span: Span) -> Token {
         let mut res = Token::Operator(Operator::ClosedBracket { span });
         if self.m_function_call {
             if vec![0, 1].contains(&self.m_bracket_depth) {

@@ -5,6 +5,7 @@ mod arithmetic_instructions;
 pub mod logger;
 mod stack_handler;
 pub mod parser;
+pub mod span;
 
 use std::sync::{Arc, Mutex};
 use self::logger::Logger;

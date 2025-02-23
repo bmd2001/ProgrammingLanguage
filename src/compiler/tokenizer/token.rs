@@ -1,25 +1,26 @@
 use std::fmt;
+use crate::compiler::span::Span;
 use super::operator::Operator;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
-    ID { name: String, span: (usize, (usize, usize)) },
-    Number { value: String, span: (usize, (usize, usize)) },
-    Boolean { value: bool, span: (usize, (usize, usize)) },
-    Exit {span: (usize, (usize, usize))},
-    OpenBracket {span: (usize, (usize, usize))},
-    ClosedBracket {span: (usize, (usize, usize))},
-    OpenCurlyBracket {span: (usize, (usize, usize))},
-    ClosedCurlyBracket {span: (usize, (usize, usize))},
-    Equals {span: (usize, (usize, usize))},
+    ID { name: String, span: Span },
+    Number { value: String, span: Span },
+    Boolean { value: bool, span: Span },
+    Exit {span: Span},
+    OpenBracket {span: Span},
+    ClosedBracket {span: Span},
+    OpenCurlyBracket {span: Span},
+    ClosedCurlyBracket {span: Span},
+    Equals {span: Span},
     Operator(Operator),
-    WhiteSpace {span: (usize, (usize, usize))},
-    NewLine {span: (usize, (usize, usize))},
-    Err {span: (usize, (usize, usize))}
+    WhiteSpace {span: Span},
+    NewLine {span: Span},
+    Err {span: Span}
 }
 
 impl Token {
-    pub fn get_span(&self) -> (usize, (usize, usize)) {
+    pub fn get_span(&self) -> Span {
         match self {
             Token::ID { span, .. }
             | Token::Number { span, .. }
@@ -31,11 +32,8 @@ impl Token {
             | Token::ClosedCurlyBracket { span }
             | Token::Equals { span }
             | Token::WhiteSpace { span }
-            | Token::NewLine { span } => *span,
-            Token::Err { span } => {
-                let (line, (start, end)) = *span;
-                (line, (start, end+1))
-            },
+            | Token::NewLine { span }
+            | Token::Err { span } => span.clone(),
             Token::Operator(op) => op.get_span(),
         }
     }

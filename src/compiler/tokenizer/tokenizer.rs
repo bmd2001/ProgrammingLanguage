@@ -1,5 +1,6 @@
 use std::iter::Peekable;
 use std::str::Chars;
+use crate::compiler::span::Span;
 use super::token::Token;
 use super::operator::Operator;
 use super::parenthesis_handler::ParenthesisHandler;
@@ -17,9 +18,7 @@ impl Tokenizer {
         Tokenizer { m_tokens: Vec::new(), m_line: 0, m_row: 0, m_parenthesis_handler: ParenthesisHandler::new()}
     }
 
-    pub fn get_tokens(&self) -> Vec<Token> {
-        self.m_tokens.clone()
-    }
+    pub fn get_tokens(&self) -> Vec<Token> { self.m_tokens.clone() }
     
     fn emit_token(&mut self, token : Token) {
         self.m_row += 1;
@@ -39,10 +38,10 @@ impl Tokenizer {
         self.clear();
         let buf = &mut String::new();
         
-        let mut chars = input.chars().peekable();
+        let chars = &mut input.chars().peekable();
         while let Some(ch) = chars.next(){
             buf.push(ch);
-            if let Some(token) = self.check_buf(buf, &chars) {
+            if let Some(token) = self.check_buf(buf, chars) {
                 self.emit_token(token);
                 buf.clear();
             }
@@ -65,7 +64,7 @@ impl Tokenizer {
     }
     
     fn match_ch(&mut self, ch: char, peek: Option<&char>) -> Option<Token> {
-        let span = (self.m_line, (self.m_row, self.m_row));
+        let span = Span::new(self.m_line, self.m_row, self.m_row);
         match ch {
             '(' | ')' => Some(self.m_parenthesis_handler.emit_bracket_token(span, ch)),
             '{' => Some(Token::OpenCurlyBracket { span }),
@@ -88,8 +87,8 @@ impl Tokenizer {
         }
     }
 
-    fn check_buf(&mut self, buf : &String, input: &Peekable<Chars>) -> Option<Token> {
-        match buf.as_str() {
+    fn check_buf(&mut self, buf : &str, input: &mut Peekable<Chars>) -> Option<Token> {
+        match buf{
             "exit" => {
                 self.m_parenthesis_handler.activate_function_detector();
                 Some(Token::Exit {span : self.get_span(buf.len())})
@@ -110,9 +109,9 @@ impl Tokenizer {
         }
     }
 
-    fn tokenize_primary_expr(&mut self, buf : &String, input: &Peekable<Chars>) -> Option<Token> {
+    fn tokenize_primary_expr(&mut self, buf : &str, input: &mut Peekable<Chars>) -> Option<Token> {
         let mut chars = buf.chars();
-        let next_char = input.clone().peek().map(|c| *c).unwrap_or(' ');
+        let next_char = input.peek().unwrap_or(&' ');
         
         // Check if the buffer contains only digits and the next character is not a digit
         let is_buf_number = chars.all(char::is_numeric) && !next_char.is_alphanumeric();
@@ -145,9 +144,9 @@ impl Tokenizer {
         self.m_row = 0;
     }
     
-    fn get_span(&mut self, length: usize) -> (usize, (usize, usize)){
-        let start = self.m_row;
+    fn get_span(&mut self, length: usize) -> Span {
+        let res = Span::new(self.m_line, self.m_row, self.m_row + length-1);
         self.m_row += length - 1;
-        (self.m_line, (start, start + length - 1))
+        res
     }
 }

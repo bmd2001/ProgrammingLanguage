@@ -1,23 +1,24 @@
 use std::fmt;
+use crate::compiler::span::Span;
 
 #[derive(Clone, Debug, PartialEq, Copy)]
 pub enum Operator {
-    Plus {span: (usize, (usize, usize))},
-    Minus {span: (usize, (usize, usize))},
-    Multiplication {span: (usize, (usize, usize))},
-    Division {span: (usize, (usize, usize))},
-    Exponent {span: (usize, (usize, usize))},
-    Modulus {span: (usize, (usize, usize))},
-    And {span: (usize, (usize, usize))},
-    Or {span: (usize, (usize, usize))},
-    Xor {span: (usize, (usize, usize))},
-    Not {span: (usize, (usize, usize))},
-    OpenBracket {span: (usize, (usize, usize))},
-    ClosedBracket {span: (usize, (usize, usize))}
+    Plus {span: Span},
+    Minus {span: Span},
+    Multiplication {span: Span},
+    Division {span: Span},
+    Exponent {span: Span},
+    Modulus {span: Span},
+    And {span: Span},
+    Or {span: Span},
+    Xor {span: Span},
+    Not {span: Span},
+    OpenBracket {span: Span},
+    ClosedBracket {span: Span}
 }
 
 impl Operator {
-    pub fn get_span(&self) -> (usize, (usize, usize)) {
+    pub fn get_span(&self) -> Span {
         match self {
             Operator::Plus { span }
             | Operator::Minus { span }
