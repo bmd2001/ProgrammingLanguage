@@ -65,23 +65,24 @@ impl Tokenizer {
     }
     
     fn match_ch(&mut self, ch: char, peek: Option<&char>) -> Option<Token> {
+        let span = (self.m_line, (self.m_row, self.m_row));
         match ch {
-            '(' | ')' => Some(self.m_parenthesis_handler.emit_bracket_token((self.m_line, (self.m_row, self.m_row)), ch)),
-            '{' => Some(Token::OpenCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
-            '}' => Some(Token::ClosedCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
-            '=' => Some(Token::Equals { span: (self.m_line, (self.m_row, self.m_row)) }),
-            ' ' => Some(Token::WhiteSpace { span: (self.m_line, (self.m_row, self.m_row)) }),
-            '+' => Some(Token::Operator(Operator::Plus { span: (self.m_line, (self.m_row, self.m_row)) })),
-            '-' => Some(Token::Operator(Operator::Minus { span: (self.m_line, (self.m_row, self.m_row)) })),
-            '%' => Some(Token::Operator(Operator::Modulus { span: (self.m_line, (self.m_row, self.m_row)) })),
+            '(' | ')' => Some(self.m_parenthesis_handler.emit_bracket_token(span, ch)),
+            '{' => Some(Token::OpenCurlyBracket { span }),
+            '}' => Some(Token::ClosedCurlyBracket { span }),
+            '=' => Some(Token::Equals { span }),
+            ' ' => Some(Token::WhiteSpace { span }),
+            '+' => Some(Token::Operator(Operator::Plus { span })),
+            '-' => Some(Token::Operator(Operator::Minus { span })),
+            '%' => Some(Token::Operator(Operator::Modulus { span })),
             '*' => {
                 if peek == Some(&'*'){
                     None
-                } else {Some(Token::Operator(Operator::Multiplication { span: (self.m_line, (self.m_row, self.m_row)) }))}
+                } else {Some(Token::Operator(Operator::Multiplication { span }))}
             },
             '\n' => {
                 self.m_parenthesis_handler.deactivate_function_detector();
-                Some(Token::NewLine { span: (self.m_line, (self.m_row, self.m_row)) })
+                Some(Token::NewLine { span })
             }
             _ => {None}
         }
