@@ -34,22 +34,11 @@ fn test_multiple_whitespaces_input() {
 
     let expected_token = vec!(
         Token::ID { name: "x".to_string(), span: (0, (0, 0)) },
-        Token::WhiteSpace { span: (0, (1, 1)) },
-        Token::WhiteSpace { span: (0, (2, 2)) },
-        Token::WhiteSpace { span: (0, (3, 3)) },
-        Token::WhiteSpace { span: (0, (4, 4)) },
-        Token::WhiteSpace { span: (0, (5, 5)) },
-        Token::WhiteSpace { span: (0, (6, 6)) },
-        Token::WhiteSpace { span: (0, (7, 7)) },
+        Token::WhiteSpace { span: (0, (1, 7)) },
         Token::Equals {span : (0, (8, 8))},
-        Token::WhiteSpace { span: (0, (9, 9)) },
-        Token::WhiteSpace { span: (0, (10, 10)) },
-        Token::WhiteSpace { span: (0, (11, 11)) },
-        Token::WhiteSpace { span: (0, (12, 12)) },
-        Token::WhiteSpace { span: (0, (13, 13)) },
+        Token::WhiteSpace { span: (0, (9, 13)) },
         Token::Number { value: "0".to_string(), span: (0, (14, 14)) },
-        Token::WhiteSpace { span: (0, (15, 15)) },
-        Token::WhiteSpace { span: (0, (16, 16)) }
+        Token::WhiteSpace { span: (0, (15, 16)) }
     );
     assert_eq!(tokenizer.get_tokens(), expected_token);
 }
