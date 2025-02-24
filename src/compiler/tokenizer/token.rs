@@ -1,6 +1,6 @@
-use std::fmt;
-use crate::compiler::span::Span;
 use super::operator::Operator;
+use crate::compiler::span::Span;
+use std::fmt;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {

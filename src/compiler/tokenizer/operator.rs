@@ -1,5 +1,5 @@
-use std::fmt;
 use crate::compiler::span::Span;
+use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Copy)]
 pub enum Operator {

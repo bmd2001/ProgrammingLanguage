@@ -1,6 +1,6 @@
-use crate::compiler::span::Span;
 use super::operator::Operator;
 use super::token::Token;
+use crate::compiler::span::Span;
 
 pub struct ParenthesisHandler{
     m_function_call: bool,
@@ -22,15 +22,9 @@ impl ParenthesisHandler{
         self.m_bracket_depth = 0;
     }
 
-    pub fn emit_bracket_token(&mut self, span: Span , c: char) -> Token{
-        if c == '('{
-            self.handle_open_bracket(span)
-        }
-        else if c == ')'{
-            self.handle_closed_bracket(span)
-        } else {
-            panic!("Invalid character passed to Parenthesis Handler")
-        }
+    pub fn emit_bracket_token(&mut self, span: Span , open_bracket: bool) -> Token{
+        if open_bracket{ self.handle_open_bracket(span) }
+        else { self.handle_closed_bracket(span) }
     }
 
     fn handle_open_bracket(&mut self, span: Span) -> Token{
