@@ -1,15 +1,12 @@
 pub mod tokenizer;
 mod generator;
-mod architecture;
-mod arithmetic_instructions;
 pub mod logger;
-mod stack_handler;
 pub mod parser;
 pub mod span;
 
 use std::sync::{Arc, Mutex};
 use self::logger::Logger;
-use self::parser::{ParserLogger};
+use self::parser::ParserLogger;
 use self::tokenizer::{Token, Tokenizer};
 use self::parser::{NodeProgram, Parser};
 use self::generator::Generator;

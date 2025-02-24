@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::compiler::architecture::{Arch, TARGET_ARCH};
+use crate::compiler::generator::architecture::{Arch, TARGET_ARCH};
 
 pub struct ArithmeticInstructions {
     instrs: HashMap<String, ((String, String), String, Vec<String>)>
