@@ -5,6 +5,7 @@ use crate::compiler::architecture::TARGET_ARCH;
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::arithmetic_instructions::{ArithmeticInstructions};
+use crate::compiler::stack_handler::StackHandler;
 
 fn type_name_of<T>(_: &T) -> &'static str {
     type_name::<T>()
