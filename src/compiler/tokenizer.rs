@@ -40,7 +40,7 @@ impl Tokenizer {
         let mut chars = input.chars().peekable();
         while let Some(ch) = chars.next(){
             buf.push(ch);
-            if let Some(token) = self.check_buf(buf, &chars) {
+            if let Some(token) = self.check_buf(buf, &mut chars) {
                 self.emit_token(token);
                 buf.clear();
             }
@@ -66,14 +66,20 @@ impl Tokenizer {
             '{' => Some(Token::OpenCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             '}' => Some(Token::ClosedCurlyBracket { span: (self.m_line, (self.m_row, self.m_row)) }),
             '=' => Some(Token::Equals { span: (self.m_line, (self.m_row, self.m_row)) }),
-            ' ' => Some(Token::WhiteSpace { span: (self.m_line, (self.m_row, self.m_row)) }),
             '+' => Some(Token::Operator(Operator::Plus { span: (self.m_line, (self.m_row, self.m_row)) })),
             '-' => Some(Token::Operator(Operator::Minus { span: (self.m_line, (self.m_row, self.m_row)) })),
             '%' => Some(Token::Operator(Operator::Modulus { span: (self.m_line, (self.m_row, self.m_row)) })),
             '*' => {
-                if peek == Some(&'*'){
-                    None
-                } else {Some(Token::Operator(Operator::Multiplication { span: (self.m_line, (self.m_row, self.m_row)) }))}
+                if peek != Some(&'*'){
+                    return Some(Token::Operator(Operator::Multiplication { span: (self.m_line, (self.m_row, self.m_row)) }))
+                }
+                None
+            },
+            ' ' => {
+                if peek != Some(&' ') {
+                    return Some(Token::WhiteSpace { span: (self.m_line, (self.m_row, self.m_row)) })
+                }
+                None
             },
             '\n' => {
                 self.m_parenthesis_handler.deactivate_function_detector();
@@ -83,8 +89,8 @@ impl Tokenizer {
         }
     }
 
-    fn check_buf(&mut self, buf : &String, input: &Peekable<Chars>) -> Option<Token> {
-        match buf.as_str() {
+    fn check_buf(&mut self, buf : &String, input: &mut Peekable<Chars>) -> Option<Token> {
+        match buf.replace(" ", "").as_str() {
             "exit" => {
                 self.m_parenthesis_handler.activate_function_detector();
                 Some(Token::Exit {span : self.get_span(buf.len())})
@@ -97,6 +103,12 @@ impl Tokenizer {
             "^|" => Some(Token::Operator(Operator::Xor { span: self.get_span(buf.len()) })),
             "true" => Some(Token::Boolean { value: true, span: self.get_span(buf.len()) }),
             "false" => Some(Token::Boolean { value: false, span: self.get_span(buf.len()) }),
+            "" => {
+                if let Some(' ') = input.peek(){
+                    return None
+                }
+                Some(Token::WhiteSpace {span: self.get_span(buf.len())})
+            }
             _ => {
                 if let Some(token) = self.tokenize_primary_expr(buf, input){
                     Some(token)
