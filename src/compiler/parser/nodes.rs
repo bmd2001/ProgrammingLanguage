@@ -1,6 +1,7 @@
 use std::fmt;
 use either::{Either, Left};
 use crate::compiler::Token;
+use crate::compiler::tokenizer::Operator;
 
 #[derive(Debug, PartialEq)]
 pub struct NodeProgram{
@@ -39,7 +40,14 @@ pub enum NodeArithmeticExpr {
 pub struct NodeArithmeticOperation {
     pub(crate) lhs: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>,
     pub(crate) rhs: Either<Box<NodeArithmeticOperation>, NodeBaseExpr>,
-    pub(crate) op: Token
+    pub(crate) op: Operator,
+    pub(crate) result_type: ResultType
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ResultType{
+    Numeric,
+    Boolean
 }
 
 

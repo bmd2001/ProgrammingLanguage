@@ -1,11 +1,11 @@
 use std::any::type_name;
-use std::collections::HashMap;
 use either::Either;
 use either::Either::{Left, Right};
 use crate::compiler::architecture::TARGET_ARCH;
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::arithmetic_instructions::{ArithmeticInstructions};
+use crate::compiler::stack_handler::StackHandler;
 
 fn type_name_of<T>(_: &T) -> &'static str {
     type_name::<T>()
@@ -14,15 +14,14 @@ fn type_name_of<T>(_: &T) -> &'static str {
 pub struct Generator {
     m_prog: NodeProgram,
     m_output: String,
-    m_id_names: HashMap<(String, usize), usize>,
+    m_stack: StackHandler,
     m_stack_size: usize,
     m_num_exponentials: usize,
-    m_scope_depth: usize,
 }
 
 impl Generator {
     pub fn new(prog : NodeProgram) -> Self {
-        Generator {m_prog: prog, m_output: "".to_string(), m_id_names: HashMap::new(), m_stack_size: 0, m_num_exponentials: 0, m_scope_depth: 0}
+        Generator {m_prog: prog, m_output: "".to_string(), m_stack: StackHandler::new(), m_stack_size: 0, m_num_exponentials: 0}
     }
 
     pub fn generate_comment(comment: &str) -> String {
@@ -81,17 +80,17 @@ impl Generator {
         if let Token::ID {name, ..}  = &var.variable{
             self.m_output.push_str(&Self::generate_comment(&format!("{var}")));
             self.generate_arithmetic_expr(&var.value);
-            self.m_id_names.insert((name.clone(), self.m_scope_depth), self.m_stack_size-1);
+            self.m_stack.add_variable(name.clone(), self.infer_type(&var.value).to_string());
         }
     }
     
     fn generate_scope(&mut self, scope: &NodeScope){
+        self.m_stack.increase_scope_depth();
         let stmts = scope.stmts.clone();
-        self.m_scope_depth += 1;
         for stmt in stmts {
             self.generate_stmt(&stmt);
         }
-        self.m_scope_depth -= 1;
+        self.m_stack.decrease_scope_depth();
     }
     
     fn generate_arithmetic_expr(&mut self, expr: &NodeArithmeticExpr){
@@ -117,20 +116,13 @@ impl Generator {
             }
             NodeBaseExpr::ID(token) => {
                 if let Token::ID { name, .. } = token {
-                    if let Some(stack_loc) = self.m_id_names.get(&(name.clone(), self.m_scope_depth)) {
-                        let offset = self.m_stack_size.checked_sub(1 + *(stack_loc))
-                            .expect("Stack underflow: m_stack_size is smaller than the location of the variable.");
-                        self.m_output.push_str(&format!("\t; Recuperate {name}'s value from stack\n\t{}\n", TARGET_ARCH.get_load_variable_instr(offset)));
+                    let offset = self.m_stack.get_offset(name.clone());
+                    self.m_output.push_str(&Self::generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", TARGET_ARCH.get_load_variable_instr(offset))));
 
-                        self.m_output.push_str(&Self::generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", TARGET_ARCH.get_load_variable_instr(offset))));
-
-                        if cfg!(target_arch = "x86_64") {
-                            self.push("rax");
-                        } else if cfg!(target_arch = "aarch64") {
-                            self.push("x0");
-                        }
-                    } else {
-                        eprintln!("Variable {name} not defined");
+                    if cfg!(target_arch = "x86_64") {
+                        self.push("rax");
+                    } else if cfg!(target_arch = "aarch64") {
+                        self.push("x0");
                     }
                 } else {
                     eprintln!("Wrong Tokenization");
@@ -155,63 +147,56 @@ impl Generator {
     fn generate_arithmetic_op(&mut self, expr: &NodeArithmeticOperation) {
         let map = ArithmeticInstructions::new();
         match expr.clone().op{
-            Token::Operator(op_type) => {
-                match op_type{
-                    Operator::Plus { .. } => {
-                        let instr_data = map.get(&"Addition".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Addition", instr_data);
+            Operator::Plus { .. } => {
+                let instr_data = map.get(&"Addition".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Addition", instr_data);
+            }
+            Operator::Minus { .. } => {
+                let instr_data = map.get(&"Subtraction".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Subtraction" , instr_data);
+            }
+            Operator::Multiplication { .. }=> {
+                let instr_data = map.get(&"Multiplication".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Multiplication" , instr_data);
+            }
+            Operator::Division { .. } => {
+                let instr_data = map.get(&"Division".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Division" , instr_data);
+            },
+            Operator::Exponent { .. } => {
+                let instr_data = map.get(&"Exponentiation".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().rhs, expr.clone().lhs, "Exponentiation" , instr_data);
+            }
+            Operator::Modulus { .. } => {
+                let instr_data = map.get(&"Modulo".to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Modulo" , instr_data);
+            }
+            Operator::Not { .. } => {
+                let instr_data = map.get(&"Not".to_string()).unwrap();
+                self.process_unary_operation(expr.clone().lhs, instr_data);
+            }
+            Operator::And { .. } | Operator::Or { .. } | Operator::Xor { .. } => {
+                if let (Some(lhs_expr), Some(rhs_expr)) = (Self::extract_expr(&expr.lhs), Self::extract_expr(&expr.rhs)) {
+                    if let Err(err) = self.type_check_logical_operands(&lhs_expr, &rhs_expr) {
+                        eprintln!("Error: {}", err);
+                        return;
                     }
-                    Operator::Minus { .. } => {
-                        let instr_data = map.get(&"Subtraction".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Subtraction" , instr_data);
-                    }
-                    Operator::Multiplication { .. }=> {
-                        let instr_data = map.get(&"Multiplication".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Multiplication" , instr_data);
-                    }
-                    Operator::Division { .. } => {
-                        let instr_data = map.get(&"Division".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Division" , instr_data);
-                    },
-                    Operator::Exponent { .. } => {
-                        let instr_data = map.get(&"Exponentiation".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().rhs, expr.clone().lhs, "Exponentiation" , instr_data);
-                    }
-                    Operator::Modulus { .. } => {
-                        let instr_data = map.get(&"Modulo".to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, "Modulo" , instr_data);
-                    }
-                    Operator::Not { .. } => {
-                        let instr_data = map.get(&"Not".to_string()).unwrap();
-                        self.process_unary_operation(expr.clone().lhs, instr_data);
-                    }
-                    Operator::And { .. } | Operator::Or { .. } | Operator::Xor { .. } => {
-                        if let (Some(lhs_expr), Some(rhs_expr)) = (Self::extract_expr(&expr.lhs), Self::extract_expr(&expr.rhs)) {
-                            if let Err(err) = self.type_check_logical_operands(&lhs_expr, &rhs_expr) {
-                                eprintln!("Error: {}", err);
-                                return;
-                            }
-                        } else {
-                            eprintln!("Error: Missing operand for logical operator");
-                            return;
-                        }
-
-                        let op_str = match expr.op {
-                            Token::Operator(Operator::And { .. }) => "And",
-                            Token::Operator(Operator::Or { .. })  => "Or",
-                            Token::Operator(Operator::Xor { .. }) => "Xor",
-                            _ => unreachable!(),
-                        };
-
-                        let instr_data = map.get(&op_str.to_string()).unwrap();
-                        self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, op_str, instr_data);
-                    }
-                    _ => {}
+                } else {
+                    eprintln!("Error: Missing operand for logical operator");
+                    return;
                 }
+
+                let op_str = match expr.op {
+                    Operator::And { .. } => "And",
+                    Operator::Or { .. }  => "Or",
+                    Operator::Xor { .. } => "Xor",
+                    _ => unreachable!(),
+                };
+
+                let instr_data = map.get(&op_str.to_string()).unwrap();
+                self.process_binary_operation(expr.clone().lhs, expr.clone().rhs, op_str, instr_data);
             }
-            _ => {
-                eprintln!("{}", format!("Wrong Tokenization. Expecting an operator but got {}", type_name_of(&expr.op)))
-            }
+            _ => {}
         }
     }
 
@@ -222,9 +207,7 @@ impl Generator {
     ) {
         self.process_operand(operand);
 
-        let acc_reg = if cfg!(target_arch = "x86_64") {
-            "rax"
-        } else if cfg!(target_arch = "aarch64") {
+        let acc_reg = if cfg!(target_arch = "aarch64") {
             "x0"
         } else {
             "rax" // default fallback

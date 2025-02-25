@@ -2,6 +2,7 @@ use std::sync::{Arc, Mutex};
 use either::{Either, Left, Right};
 use crate::compiler::parser::{NodeArithmeticExpr, NodeArithmeticOperation, NodeBaseExpr, ParserErrorType, ParserLogger};
 use crate::compiler::parser::expression_factory::reverse_polish_notation::ReversePolishNotation;
+use crate::compiler::parser::nodes::ResultType;
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::parser::token_stream::TokenStream;
 
@@ -83,7 +84,8 @@ impl<'a> ExpressionFactory<'a> {
         self.m_expr_stack.push(NodeArithmeticExpr::Operation(NodeArithmeticOperation {
             lhs: lhs_node,
             rhs: rhs_node,
-            op: Token::Operator(operator.clone()),
+            op: *operator,
+            result_type: self.get_result_type(&operator),
         }));
         true
     }
@@ -94,6 +96,18 @@ impl<'a> ExpressionFactory<'a> {
                 NodeArithmeticExpr::Base(NodeBaseExpr::Bool(_))) => true,
             _ => false,
         }
+    }
+
+    fn get_result_type(& self, op: &Operator) -> ResultType{
+        let mut res = ResultType::Numeric;
+        match op{
+            Operator::And { .. } |
+            Operator::Or { .. } |
+            Operator::Xor { .. } |
+            Operator::Not { .. } => { res = ResultType::Boolean }
+            _ => {}
+        }
+        res
     }
     
     fn log_error(&self, error: ParserErrorType, token: &Token){

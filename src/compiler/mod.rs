@@ -3,6 +3,7 @@ mod generator;
 mod architecture;
 mod arithmetic_instructions;
 pub mod logger;
+mod stack_handler;
 pub mod parser;
 
 use std::sync::{Arc, Mutex};
