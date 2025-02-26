@@ -22,7 +22,7 @@ impl ParserLogger {
     
     pub fn report_errors(&self){
         // Check if the code is being run with a test profile
-        let is_test_profile = std::thread::current().name().map_or(false, |name| name.starts_with("test"));
+        let is_test_profile = std::thread::current().name().map_or(false, |name| name.contains("test"));
         if !is_test_profile {
             for (error, span) in self.errors.clone() {
                 self.report_error(error.as_str(), span)
