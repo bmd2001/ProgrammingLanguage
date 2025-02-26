@@ -15,7 +15,7 @@ impl<'a> StatementFactory<'a>{
     }
     
     pub fn create(&mut self, stmts: &mut Vec<NodeStmt>){
-        if !self.m_token_stream.is_err_token_present(){
+        if !self.m_token_stream.is_err_in_stmt(){
             let _ = self.parse_stmt().map_or((), |stmt| stmts.push(stmt));
         }
     }
