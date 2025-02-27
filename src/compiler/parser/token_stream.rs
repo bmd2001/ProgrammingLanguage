@@ -3,6 +3,7 @@ use crate::compiler::parser::{ParserErrorType};
 use crate::compiler::parser::parser_logger::ParserLogger;
 use crate::compiler::tokenizer::Token;
 
+#[derive(Clone)]
 pub(crate) struct TokenStream{
     m_tokens: Vec<Vec<Token>>,
     m_logger: Arc<Mutex<ParserLogger>>,
