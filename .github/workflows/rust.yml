@@ -12,20 +12,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        arch: [x86_64, aarch64]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-latest]
         include:
           - os: ubuntu-latest
-            arch: x86_64
             rust_target: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
-            arch: aarch64
+          - os: ubuntu-24.04-arm
             rust_target: aarch64-unknown-linux-gnu
-          - os: macos-latest
-            arch: x86_64
+          - os: macos-13
             rust_target: x86_64-apple-darwin
           - os: macos-latest
-            arch: aarch64
             rust_target: aarch64-apple-darwin
 
     steps:
