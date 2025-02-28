@@ -47,9 +47,13 @@ jobs:
         run: |
           sudo apt update && sudo apt install -y build-essential gcc
 
-      - name: Install NASM
-        if: matrix.arch == 'x86_64'
+      - name: Install NASM (Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y nasm
+
+      - name: Install NASM (macOS)
+        if: matrix.os == 'macos-13'
+        run: brew install nasm
 
       - name: Install dependencies (Linux aarch64)
         if: matrix.arch == 'aarch64' && matrix.os == 'ubuntu-latest'
