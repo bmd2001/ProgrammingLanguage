@@ -16,10 +16,10 @@ impl TokenStream{
         let mut line = Vec::new();
 
         fn trim_whitespace(mut line: Vec<Token>) -> Vec<Token>{
-            if let Some(Token::WhiteSpace {..}) = line.first(){
+            while let Some(Token::WhiteSpace {..}) = line.first(){
                 line.remove(0);
             }
-            if let Some(Token::WhiteSpace {..}) = line.last(){
+            while let Some(Token::WhiteSpace {..}) = line.last(){
                 line.pop();
             }
             line
@@ -28,7 +28,7 @@ impl TokenStream{
         for token in tokens{
             match token{
                 Token::NewLine { .. } => {
-                    m_tokens.push(trim_whitespace(line));
+                    if !line.is_empty() {m_tokens.push(trim_whitespace(line))};
                     line = Vec::new();
                 }
                 Token::OpenCurlyBracket { .. } => {

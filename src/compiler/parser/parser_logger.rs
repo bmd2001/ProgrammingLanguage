@@ -1,12 +1,12 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use crate::compiler::tokenizer::Token;
 use crate::compiler::logger::Logger;
-
+use crate::compiler::span::Span;
 
 pub struct ParserLogger{
     file_name: String,
     source: Source,
-    errors: Vec<(String, (usize, (usize, usize)))>
+    errors: Vec<(String, Span)>
 }
 
 impl ParserLogger {
@@ -15,7 +15,7 @@ impl ParserLogger {
     }
 
     pub fn log_error(&mut self, error: ParserErrorType, token: &Token) {
-        let span : (usize, (usize, usize)) = token.get_span();
+        let span : Span = token.get_span();
         let res = (error.message().to_string(), span);
         self.errors.push(res);
     }
@@ -65,8 +65,8 @@ impl Logger for ParserLogger{
         ParserLogger{ file_name, source: Source::from(code), errors: vec![] }
     }
 
-    fn report_error(&self, message: &str, span: (usize, (usize, usize))) {
-        let (line_i, (row_start, row_end)) = span;
+    fn report_error(&self, message: &str, span: Span) {
+        let (line_i, row_start, row_end) = (span.m_line, span.m_start, span.m_end);
         let offset = self.source.line(line_i).expect("Custom Span logic returned wrong line ID").offset();
         Report::build(ReportKind::Error, (self.file_name.as_str(), offset + row_start..offset + row_end))
             .with_message(message)

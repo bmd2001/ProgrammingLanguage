@@ -1,6 +1,7 @@
 use BRS::compiler::logger::Logger;
 use BRS::compiler::parser::{NodeStmt, NodeVariableAssignment, NodeArithmeticExpr, NodeBaseExpr, Parser, ParserLogger};
 use BRS::compiler::tokenizer::{Token, Tokenizer};
+use BRS::compiler::span::Span;
 use once_cell::sync::Lazy;
 use std::sync::{Arc, Mutex};
 
@@ -69,10 +70,10 @@ fn test_variable_assignment_base(){
     assert_eq!(stmts.len(), 1);
     assert_eq!(stmts[0], NodeStmt::ID(
         NodeVariableAssignment{
-            variable: Token::ID { name: "x".to_string(), span: (0, (0, 0)) }, 
+            variable: Token::ID { name: "x".to_string(), span: Span::new(0, 0, 0) },
             value: NodeArithmeticExpr::Base(
                 NodeBaseExpr::Num(
-                    Token::Number {value: "0".to_string(),span: (0, (2, 2))}
+                    Token::Number {value: "0".to_string(),span: Span::new(0, 2, 2)}
                 )
             )
         }
