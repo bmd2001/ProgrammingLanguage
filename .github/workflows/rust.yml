@@ -69,10 +69,6 @@ jobs:
         if: runner.os == 'Linux' && matrix.arch == 'aarch64'
         run: cargo install cross || true
 
-      - name: Install Cargo Tarpaulin
-        run: cargo install cargo-tarpaulin
-
-
       - name: Run
         run: |
           RUST_BACKTRACE=1 cargo build --target ${{ matrix.rust_target }} --color=always --verbose --profile dev
@@ -89,7 +85,7 @@ jobs:
       - name: Run Tests with Coverage for ${{ matrix.rust_target }}
         run: |
           cargo install cargo-llvm-cov
-          cargo llvm-cov --target ${{ matrix.rust_target }} --all-features --workspace --lcov --output-path coverage-${{ matrix.rust_target }}.info
+          cargo llvm-cov --target ${{ matrix.rust_target }} --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info
 
 
       - name: Upload Coverage Report for ${{ matrix.rust_target }}
@@ -100,6 +96,7 @@ jobs:
 
   merge_coverage:
     runs-on: ubuntu-latest
+    needs: build-and-test
     steps:
       - name: Download Coverage Reports
         uses: actions/download-artifact@v4
@@ -115,5 +112,5 @@ jobs:
       - name: Upload Final Coverage Report
         uses: codecov/codecov-action@v4
         with:
-          file: lcov_${{ github.event.pull_request.number }}.info
-          path: coverage/lcov_${{ github.event.pull_request.number }}.info
+          name: lcov_${{ github.event.pull_request.number }}.info
+          path: coverage/
