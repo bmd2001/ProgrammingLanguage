@@ -12,16 +12,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        arch: [x86_64, aarch64]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-latest]
         include:
           - os: ubuntu-latest
             arch: x86_64
             rust_target: x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             arch: aarch64
             rust_target: aarch64-unknown-linux-gnu
-          - os: macos-latest
+          - os: macos-13
             arch: x86_64
             rust_target: x86_64-apple-darwin
           - os: macos-latest
@@ -48,12 +47,16 @@ jobs:
         run: |
           sudo apt update && sudo apt install -y build-essential gcc
 
-      - name: Install NASM
+      - name: Install NASM (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y nasm
 
+      - name: Install NASM (macOS)
+        if: matrix.os == 'macos-13'
+        run: brew install nasm
+
       - name: Install dependencies (Linux aarch64)
-        if: matrix.arch == 'aarch64' && matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt update
           sudo apt install -y gcc-aarch64-linux-gnu
@@ -65,26 +68,78 @@ jobs:
       - name: Install Rust target
         run: rustup target add ${{ matrix.rust_target }}
 
-      - name: Install cross
-        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
-        run: cargo install cross || true
-
-      - name: Debug File System
-        run: |
-          pwd
-          ls -lah
-          ls -lah .github/workflows
-          ls -R
-
       - name: Run
         run: |
           RUST_BACKTRACE=1 cargo build --target ${{ matrix.rust_target }} --color=always --verbose --profile dev
           RUST_BACKTRACE=1 cargo run .github/workflows/run.brs --target ${{ matrix.rust_target }} --verbose -- --outdir target/debug/
       - name: Test
         run: |
-          if [ "${{ matrix.rust_target }}" = "aarch64-unknown-linux-gnu" ]; then
-            cross test --target ${{ matrix.rust_target }} --verbose --bin BRS -- --test-threads=1
-          else
-            cargo build --color=always --verbose --tests --profile test
-            cargo test --target ${{ matrix.rust_target }} --verbose --bin BRS -- --test-threads=1
-          fi
+          RUST_BACKTRACE=1 cargo build --target ${{ matrix.rust_target }} --color=always --verbose --tests --profile test
+          RUST_BACKTRACE=1 cargo test --target ${{ matrix.rust_target }} --verbose --bin BRS -- --test-threads=1
+          
+      - name: Run Tests with Coverage for ${{ matrix.rust_target }}
+        run: |
+          mkdir -p coverage
+          cargo install cargo-llvm-cov
+          cargo llvm-cov --target ${{ matrix.rust_target }} --bin=BRS --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info -- --test-threads=1
+
+
+      - name: Upload Coverage Report for ${{ matrix.rust_target }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.rust_target }}.info
+          path: coverage/
+
+  merge_coverage:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: coverage/
+          merge-multiple: true
+      - name: Display structure of downloaded files
+        run: ls -R coverage/
+
+      - name: Install LCOV
+        run: sudo apt-get update && sudo apt-get install -y lcov
+
+      - name: Fix Paths in Coverage Reports
+        run: |
+          for f in coverage/*.info; do
+            sed -i 's|/Users/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
+            sed -i 's|/home/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
+          done
+
+
+      - name: Merge Coverage Reports
+        run: |
+          lcov -a coverage/coverage-aarch64-apple-darwin.info \
+               -a coverage/coverage-aarch64-unknown-linux-gnu.info \
+               -a coverage/coverage-x86_64-apple-darwin.info \
+               -a coverage/coverage-x86_64-unknown-linux-gnu.info \
+               -o coverage/lcov_${{ github.event.pull_request.number }}.info
+
+      - name: Fix Coverage Paths
+        run: |
+          sed -i 's|/Users/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' coverage/lcov_${{ github.event.pull_request.number }}.info
+
+
+      - name: Upload Final Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lcov_${{ github.event.pull_request.number }}.info
+          path: coverage/
+
+      - name: Create HTML Report
+        run: |
+          ls -R
+          genhtml -o coverage_html coverage/lcov_${{ github.event.pull_request.number }}.info --synthesize-missing
+
+      - name: Upload HTML Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          path: coverage_html/

@@ -121,7 +121,7 @@ fn main() {
                     }
 
                     let mut ld_command = if arch == "aarch64" {
-                        Command::new("aarch64-linux-gnu-as")
+                        Command::new("aarch64-linux-gnu-ld")
                     } else {
                         Command::new("ld")
                     };
