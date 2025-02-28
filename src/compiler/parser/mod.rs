@@ -14,6 +14,7 @@ pub use nodes::{
     NodeBaseExpr,
     NodeArithmeticOperation,
     NodeScope,
+    ResultType
 };
 
 

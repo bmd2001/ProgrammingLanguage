@@ -49,12 +49,12 @@ impl Arch {
 
     pub fn get_exponentiation_instr(&self) -> &str {
         match self {
-            Arch::X86_64 => "mov rax, 1\n\t{exp_label}:\n\tcmp rcx, 0\n\tje {done_label}\n\timul rax, rdx\n\tdec rcx\n\tjmp {exp_label}\n\t{done_label}:",
+            Arch::X86_64 => "mov rax, 1\n{exp_label}:\n\tcmp rcx, 0\n\tje {done_label}\n\timul rax, rdx\n\tdec rcx\n\tjmp {exp_label}\n{done_label}:",
             Arch::AArch64 => {
                 if cfg!(target_os = "linux") {
-                    "mov x0, #1\n\texp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\n\tdone_label:"
+                    "mov x0, #1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
                 } else {
-                    "mov x0, 1\n\texp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\n\tdone_label:"
+                    "mov x0, 1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
                 }
             }
         }
@@ -226,13 +226,13 @@ mod test_architecture{
             Arch::X86_64 => assert_eq!(arch.get_exponentiation_instr(),
                                        concat!(
                                        "mov rax, 1\n",
-                                       "\t{exp_label}:\n",
+                                       "{exp_label}:\n",
                                        "\tcmp rcx, 0\n",
                                        "\tje {done_label}\n",
                                        "\timul rax, rdx\n",
                                        "\tdec rcx\n",
                                        "\tjmp {exp_label}\n",
-                                       "\t{done_label}:"
+                                       "{done_label}:"
                                        )
             ),
 
@@ -241,26 +241,26 @@ mod test_architecture{
                     assert_eq!(arch.get_exponentiation_instr(),
                                concat!(
                                "mov x0, #1\n",
-                               "\texp_label:\n",
+                               "exp_label:\n",
                                "\tcmp x1, #0\n",
                                "\tbeq done_label\n",
                                "\tmul x0, x0, x2\n",
                                "\tsub x1, x1, #1\n",
                                "\tb exp_label\n",
-                               "\tdone_label:"
+                               "done_label:"
                                )
                     )
                 } else {
                     assert_eq!(arch.get_exponentiation_instr(),
                                concat!(
                                "mov x0, 1\n",
-                               "\texp_label:\n",
+                               "exp_label:\n",
                                "\tcmp x1, #0\n",
                                "\tbeq done_label\n",
                                "\tmul x0, x0, x2\n",
                                "\tsub x1, x1, #1\n",
                                "\tb exp_label\n",
-                               "\tdone_label:"
+                               "done_label:"
                                )
                     )
                 }
