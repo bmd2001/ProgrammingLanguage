@@ -97,7 +97,6 @@ jobs:
       - name: Download Coverage Reports
         uses: actions/download-artifact@v4
         with:
-          name: coverage-${{ matrix.rust_target }}
           path: coverage/
 
       - name: Merge Coverage Reports
