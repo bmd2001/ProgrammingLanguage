@@ -45,6 +45,7 @@ impl fmt::Display for Token {
         match self {
             Token::ID { name, span } => write!(f, "ID({}, {:?})", name, span),
             Token::Number { value, span } => write!(f, "Number({}, {:?})", value, span),
+            Token::Boolean {value, span} => write!(f, "Boolean({}, {:?})", value, span),
             Token::Exit { .. } => write!(f, "exit()"),
             Token::OpenBracket { .. } => write!(f, "("),
             Token::ClosedBracket { .. } => write!(f, ")"),
@@ -55,6 +56,66 @@ impl fmt::Display for Token {
             Token::WhiteSpace {..} => write!(f, " "),
             Token::NewLine {..} => write!(f, "\n"),
             _ => {write!(f, "err")}
+        }
+    }
+}
+
+
+
+#[cfg(test)]
+mod test_token{
+    use std::iter::zip;
+    use super::*;
+
+    fn all_tokens(span: Span) -> Vec<Token> {
+        vec![
+            Token::ID { name: "x".to_string(), span },
+            Token::Number { value: "42".to_string(), span },
+            Token::Boolean { value: true, span },
+            Token::Exit { span },
+            Token::OpenBracket { span },
+            Token::ClosedBracket { span },
+            Token::OpenCurlyBracket { span },
+            Token::ClosedCurlyBracket { span },
+            Token::Equals { span },
+            Token::Operator(Operator::Plus { span }),
+            Token::WhiteSpace { span },
+            Token::NewLine { span },
+            Token::Err { span },
+        ]
+    }
+    
+    fn expected_format() -> Vec<&'static str>{
+        vec![
+            "ID(x, Span { m_line: 0, m_start: 0, m_end: 0 })",
+            "Number(42, Span { m_line: 0, m_start: 0, m_end: 0 })",
+            "Boolean(true, Span { m_line: 0, m_start: 0, m_end: 0 })",
+            "exit()",
+            "(",
+            ")",
+            "{",
+            "}",
+            "=",
+            "+",
+            " ",
+            "\n",
+            "err"
+        ]
+    }
+    
+    #[test]
+    fn test_get_span(){
+        let dummy_span = Span::new(0, 0, 0);
+        for token in all_tokens(dummy_span){
+            assert_eq!(token.get_span(), dummy_span)
+        }
+    }
+    
+    #[test]
+    fn test_formatting(){
+        let dummy_span = Span::new(0,0, 0);
+        for (token, exp_format) in zip(all_tokens(dummy_span), expected_format()){
+            assert_eq!(format!("{}", token), exp_format);
         }
     }
 }

@@ -30,11 +30,6 @@ impl Parser {
             None
         } else { Some(prog) }
     }
-
-    fn log_error(&self, error: ParserErrorType, token: &Token){
-        let mut logger = self.m_logger.lock().unwrap();
-        logger.log_error(error, token);
-    }
     
     fn flush_errors(&mut self) -> bool{
         if self.m_logger.lock().is_ok_and(|logger| logger.failed_parsing()) {
@@ -44,4 +39,61 @@ impl Parser {
         false
     }
 
+}
+
+
+
+#[cfg(test)]
+mod test_parser{
+    use crate::compiler::logger::Logger;
+    use crate::compiler::parser::{NodeArithmeticExpr, NodeBaseExpr, NodeExit, NodeStmt, NodeVariableAssignment};
+    use crate::compiler::span::Span;
+    use super::*;
+    
+    fn create_parser(tokens: Vec<Token>) -> Parser{
+        let logger = Arc::new(Mutex::new(ParserLogger::new("".to_string(), "".to_string())));
+        Parser::new(tokens, logger)
+    }
+    
+    #[test]
+    fn test_parsing(){
+        let dummy_span = Span::new(0, 0, 0);
+        let tokens = vec![
+            Token::ID { name: "x".to_string(), span: dummy_span },
+            Token::Equals {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::NewLine { span: dummy_span },
+            Token::Exit { span: dummy_span },
+            Token::OpenBracket {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::ClosedBracket {span:dummy_span}
+        ];
+        
+        let mut parser = create_parser(tokens);
+        let prog = parser.parse();
+        assert!(prog.is_some());
+        let node_prog_stmt = prog.unwrap().get_stmts();
+        assert!(!node_prog_stmt.is_empty());
+        let exp_stmts = vec![
+            NodeStmt::ID(
+                NodeVariableAssignment {
+                    variable: Token::ID { name: "x".to_string(), span: dummy_span },
+                    value: NodeArithmeticExpr::Base(NodeBaseExpr::Num(Token::Number { value: 1.to_string(), span: dummy_span })) }
+            ),
+            NodeStmt::Exit(
+                NodeExit{ expr: NodeArithmeticExpr::Base(NodeBaseExpr::Num(Token::Number { value: 1.to_string(), span: dummy_span })) }
+            )
+        ];
+        assert_eq!(node_prog_stmt, exp_stmts);
+    }
+    
+    #[test]
+    fn test_wrong_parsing(){
+        let dummy_span = Span::new(0, 0, 0);
+        let tokens = vec![
+            Token::Err {span:dummy_span}
+        ];
+        let mut parser = create_parser(tokens);
+        assert!(parser.parse().is_none());
+    }
 }

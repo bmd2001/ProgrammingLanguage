@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+#[derive(Debug)]
+#[derive(PartialEq)]
 struct Variable{
     m_name: String,
     m_type: String,
@@ -60,5 +62,69 @@ impl StackHandler{
                 variable.pop();
             }
         }
+    }
+}
+
+
+
+#[cfg(test)]
+mod test_stack_handler{
+    use std::panic;
+    use std::panic::AssertUnwindSafe;
+    use super::*;
+
+    #[test]
+    fn test_add_variable(){
+        let mut stack = StackHandler::new();
+        stack.add_variable("Test".to_string(), "Test".to_string());
+        assert_eq!(stack.m_stack_size, 8);
+        assert_eq!(stack.m_scope_depth, 0);
+
+        assert!(stack.m_variables.get(&"Test".to_string()).is_some());
+        let test_variables = stack.m_variables.get(&"Test".to_string()).expect("There should have been a check that there was a variable in the map");
+        assert_eq!(test_variables, &vec![Variable::new("Test".to_string(), "Test".to_string(), 0, 8)])
+    }
+
+    #[test]
+    fn test_get_offset(){
+        let mut stack = StackHandler::new();
+        stack.add_variable("Test".to_string(), "Test".to_string());
+        assert_eq!(stack.get_offset("Test".to_string()), 0);
+
+        stack.add_variable("Test2".to_string(), "Test2".to_string());
+        assert_eq!(stack.get_offset("Test2".to_string()), 0);
+        assert_eq!(stack.get_offset("Test".to_string()), 8);
+    }
+
+    #[test]
+    fn test_increase_scope_depth(){
+        let mut stack = StackHandler::new();
+        stack.increase_scope_depth();
+        assert_eq!(stack.m_scope_depth, 1)
+    }
+
+    #[test]
+    fn test_decrease_scope_depth(){
+        let mut stack = StackHandler::new();
+        stack.add_variable("Scope".to_string(), "Scope".to_string());
+        stack.increase_scope_depth();
+        stack.add_variable("Scope".to_string(), "Scope".to_string());
+        stack.add_variable("Scope".to_string(), "Scope".to_string());
+        stack.increase_scope_depth();
+
+        stack.decrease_scope_depth();
+        let vars = stack.m_variables.get(&"Scope".to_string()).expect("There should be stored variables");
+        assert_eq!(vars.len(), 3);
+        assert_eq!(stack.m_scope_depth, 1);
+        stack.decrease_scope_depth();
+        let vars = stack.m_variables.get(&"Scope".to_string()).expect("There should be stored variables");
+        assert_eq!(vars.len(), 1);
+        assert_eq!(stack.m_scope_depth, 0);
+        // To prevent rust to print the panic message in the terminal, we replace the panic before calling decrease_scope_depth
+        let prev_hook = panic::take_hook();
+        panic::set_hook(Box::new(|_| {}));
+        let failure = panic::catch_unwind(AssertUnwindSafe(|| stack.decrease_scope_depth()));
+        panic::set_hook(prev_hook);
+        assert!(failure.is_err())
     }
 }

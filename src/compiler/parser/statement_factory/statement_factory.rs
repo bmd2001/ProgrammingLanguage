@@ -15,7 +15,7 @@ impl<'a> StatementFactory<'a>{
     }
     
     pub fn create(&mut self, stmts: &mut Vec<NodeStmt>){
-        if !self.m_token_stream.is_err_token_present(){
+        if !self.m_token_stream.is_err_in_stmt(){
             let _ = self.parse_stmt().map_or((), |stmt| stmts.push(stmt));
         }
     }
@@ -63,7 +63,10 @@ impl<'a> StatementFactory<'a>{
         match expr{
             Some(Left(operation)) => {Some(NodeExit { expr: NodeArithmeticExpr::Operation(*operation) })}
             Some(Right(base)) => {Some(NodeExit { expr: NodeArithmeticExpr::Base(base) })}
-            None => {None}
+            None => {
+                //TODO This should report an error. There should be an exit code passed in between parenthesis
+                None
+            }
         }
     }
 
@@ -86,7 +89,7 @@ impl<'a> StatementFactory<'a>{
                                 },  // The parsed value as a ArithmeticExpr
                             })
                         }
-                        None => None, // Handle the error if the last token is not a valid PrimaryExpr
+                        None => None, //TODO Handle the error if the last token is not a valid PrimaryExpr
                     }
                 }
                 _ => {
@@ -129,5 +132,229 @@ impl<'a> StatementFactory<'a>{
     fn log_error(&self, error: ParserErrorType, token: &Token){
         let mut logger = self.m_logger.lock().unwrap();
         logger.log_error(error, token);
+    }
+}
+
+
+
+#[cfg(test)]
+mod test_statement_factory{
+    use crate::compiler::logger::Logger;
+    use crate::compiler::parser::nodes::ResultType;
+    use crate::compiler::span::Span;
+    use crate::compiler::tokenizer::Operator;
+    use super::*;
+
+    fn setup_logger() -> Arc<Mutex<ParserLogger>> {
+        Arc::new(Mutex::new(ParserLogger::new("".to_string(), "".to_string())))
+    }
+
+    #[test]
+    fn test_base_exit(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Exit {span: dummy_span},
+            Token::OpenBracket {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::ClosedBracket {span: dummy_span}],
+            logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+        
+        factory.create(res);
+        assert_eq!(res.len(), 1);
+    }
+
+    #[test]
+    fn test_operation_exit(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Exit {span: dummy_span},
+            Token::OpenBracket {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::Operator(Operator::Plus {span: dummy_span}),
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::ClosedBracket {span: dummy_span}],
+            logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert_eq!(res.len(), 1);
+    }
+    
+    #[test]
+    fn test_missing_exit_code(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Exit {span: dummy_span},
+            Token::OpenBracket {span: dummy_span},
+            Token::ClosedBracket {span: dummy_span}],
+                                                logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert!(res.is_empty());
+    }
+    
+    #[test]
+    fn test_exit_missing_open_bracket(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Exit {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::ClosedBracket {span: dummy_span}], 
+            logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert!(res.is_empty());
+    }
+
+    #[test]
+    fn test_exit_missing_closed_bracket(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Exit {span: dummy_span},
+            Token::OpenBracket {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span }],
+            logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert!(res.is_empty());
+    }
+    
+    #[test]
+    fn test_variable_assignment(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::ID { name: "x".to_string(), span: dummy_span},
+            Token::Equals {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span }],
+                                                logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        let exp_stmt: &mut  Vec<NodeStmt> = &mut vec![
+            NodeStmt::ID(NodeVariableAssignment{
+                variable: Token::ID { name: "x".to_string(), span: dummy_span},
+                value: NodeArithmeticExpr::Base(NodeBaseExpr::Num(
+                            Token::Number { value: 1.to_string(), span: dummy_span }
+                        )
+                    ) 
+                }
+            )];
+        assert_eq!(res, exp_stmt);
+    }
+    
+    #[test]
+    fn test_variable_operation_assignment(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::ID { name: "x".to_string(), span: dummy_span},
+            Token::Equals {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::Operator(Operator::Plus {span: dummy_span}),
+            Token::Number { value: 1.to_string(), span: dummy_span }],
+            logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        let exp_stmt: &mut  Vec<NodeStmt> = &mut vec![
+            NodeStmt::ID(NodeVariableAssignment{
+                variable: Token::ID { name: "x".to_string(), span: dummy_span},
+                value: NodeArithmeticExpr::Operation(NodeArithmeticOperation{
+                    lhs: Right(NodeBaseExpr::Num(Token::Number { value: 1.to_string(), span: dummy_span })),
+                    rhs: Right(NodeBaseExpr::Num(Token::Number { value: 1.to_string(), span: dummy_span })),
+                    op: Operator::Plus {span: dummy_span},
+                    result_type: ResultType::Numeric,
+                })
+            }
+            )];
+        assert_eq!(res, exp_stmt);
+    }
+    
+    #[test]
+    fn test_bad_variable(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::ID { name: "x".to_string(), span: dummy_span},
+            Token::Equals {span: dummy_span}],
+            logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert!(res.is_empty());
+    }
+    
+    #[test]
+    fn test_scope(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::OpenCurlyBracket {span: dummy_span},
+            Token::ID { name: "x".to_string(), span: dummy_span},
+            Token::Equals {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::ClosedCurlyBracket {span: dummy_span}],
+            logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        let exp_stmt: &mut  Vec<NodeStmt> = &mut vec![
+            NodeStmt::Scope(NodeScope{ stmts: vec![
+                NodeStmt::ID(NodeVariableAssignment{
+                    variable: Token::ID { name: "x".to_string(), span: dummy_span},
+                    value: NodeArithmeticExpr::Base(NodeBaseExpr::Num(
+                                Token::Number { value: 1.to_string(), span: dummy_span }
+                            )
+                        )
+                    })
+                ] }),
+            ];
+        assert_eq!(res, exp_stmt);
+    }
+    
+    #[test]
+    fn test_bad_scope(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::OpenCurlyBracket {span: dummy_span},
+            Token::ID { name: "x".to_string(), span: dummy_span},
+            Token::Equals {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span }],
+            logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert!(res.is_empty());
     }
 }
