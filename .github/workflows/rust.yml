@@ -81,13 +81,13 @@ jobs:
         run: |
           mkdir -p coverage
           cargo install cargo-llvm-cov
-          cargo llvm-cov --target ${{ matrix.rust_target }} --bin=BRS --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info
+          cargo llvm-cov --target ${{ matrix.rust_target }} --bin=BRS --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.lcov
 
 
       - name: Upload Coverage Report for ${{ matrix.rust_target }}
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.rust_target }}.info
+          name: coverage-${{ matrix.rust_target }}.lcov
           path: coverage/
 
   merge_coverage:
@@ -104,7 +104,7 @@ jobs:
       - name: Merge Coverage Reports
         run: |
           cargo install grcov || true
-          grcov coverage/ -s . --binary-path ./target/debug -t lcov --output-path coverage/lcov_${{ github.event.pull_request.number }}.info
+          grcov coverage/ -s . --binary-path ./target/debug -t lcov --output-path coverage/lcov_${{ github.event.pull_request.number }}.lcov
 
       - name: Upload Final Coverage Report
         uses: actions/upload-artifact@v4
