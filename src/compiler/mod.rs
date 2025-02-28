@@ -1,8 +1,8 @@
-pub mod tokenizer;
+mod tokenizer;
 mod generator;
-pub mod logger;
-pub mod parser;
-pub mod span;
+mod logger;
+mod parser;
+mod span;
 
 use std::sync::{Arc, Mutex};
 use self::logger::Logger;
