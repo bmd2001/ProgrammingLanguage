@@ -15,18 +15,19 @@ jobs:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-latest]
         include:
           - os: ubuntu-latest
+            arch: x86_64
             rust_target: x86_64-unknown-linux-gnu
           - os: ubuntu-24.04-arm
+            arch: aarch64
             rust_target: aarch64-unknown-linux-gnu
           - os: macos-13
+            arch: x86_64
             rust_target: x86_64-apple-darwin
           - os: macos-latest
+            arch: aarch64
             rust_target: aarch64-apple-darwin
 
     steps:
-      - name: Check system architecture
-        run: uname -m
-
       - name: Work around spurious network errors in curl 8.0
         run: |
           if rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then
@@ -47,7 +48,7 @@ jobs:
           sudo apt update && sudo apt install -y build-essential gcc
 
       - name: Install NASM
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.arch == 'x86_64'
         run: sudo apt-get update && sudo apt-get install -y nasm
 
       - name: Install dependencies (Linux aarch64)
