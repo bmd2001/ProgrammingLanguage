@@ -86,7 +86,7 @@ jobs:
         run: |
           mkdir -p coverage
           cargo install cargo-llvm-cov
-          cargo llvm-cov --target ${{ matrix.rust_target }} --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info
+          cargo llvm-cov --target ${{ matrix.rust_target }} --bin=BRS --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info
 
 
       - name: Upload Coverage Report for ${{ matrix.rust_target }}
