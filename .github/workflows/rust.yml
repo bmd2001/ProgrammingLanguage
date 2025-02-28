@@ -75,7 +75,7 @@ jobs:
           RUST_BACKTRACE=1 cargo run .github/workflows/run.brs --target ${{ matrix.rust_target }} --verbose -- --outdir target/debug/
       - name: Test
         run: |
-          RUST_BACKTRACE=1 cargo build --color=always --verbose --tests --profile test
+          RUST_BACKTRACE=1 cargo build --target ${{ matrix.rust_target }} --color=always --verbose --tests --profile test
           RUST_BACKTRACE=1 cargo test --target ${{ matrix.rust_target }} --verbose --bin BRS -- --test-threads=1
           
       - name: Run Tests with Coverage for ${{ matrix.rust_target }}
