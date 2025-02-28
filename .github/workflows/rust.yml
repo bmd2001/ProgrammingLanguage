@@ -29,6 +29,9 @@ jobs:
             rust_target: aarch64-apple-darwin
 
     steps:
+      - name: Check system architecture
+        run: uname -m
+
       - name: Work around spurious network errors in curl 8.0
         run: |
           if rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then
