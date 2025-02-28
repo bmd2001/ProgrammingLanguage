@@ -69,12 +69,9 @@ jobs:
         if: runner.os == 'Linux' && matrix.arch == 'aarch64'
         run: cargo install cross || true
 
-      - name: Debug File System
-        run: |
-          pwd
-          ls -lah
-          ls -lah .github/workflows
-          ls -R
+      - name: Install Cargo Tarpaulin
+        run: cargo install cargo-tarpaulin
+
 
       - name: Run
         run: |
@@ -88,3 +85,35 @@ jobs:
             cargo build --color=always --verbose --tests --profile test
             cargo test --target ${{ matrix.rust_target }} --verbose --bin BRS -- --test-threads=1
           fi
+          
+      - name: Run Tests with Coverage for ${{ matrix.rust_target }}
+        run: |
+          cargo install cargo-llvm-cov
+          cargo llvm-cov --target ${{ matrix.rust_target }} --all-features --workspace --lcov --output-path coverage-${{ matrix.rust_target }}.info
+
+
+      - name: Upload Coverage Report for ${{ matrix.rust_target }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.rust_target }}.info
+          path: coverage/
+
+  merge_coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Coverage Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-${{ matrix.rust_target }}
+          path: coverage/
+
+      - name: Merge Coverage Reports
+        run: |
+          cargo install grcov || true
+          grcov coverage/ -s . --binary-path ./target/debug -t lcov --output-path coverage/lcov_${{ github.event.pull_request.number }}.info
+
+      - name: Upload Final Coverage Report
+        uses: codecov/codecov-action@v4
+        with:
+          file: lcov_${{ github.event.pull_request.number }}.info
+          path: coverage/lcov_${{ github.event.pull_request.number }}.info
