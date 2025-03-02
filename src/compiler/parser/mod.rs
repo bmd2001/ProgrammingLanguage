@@ -13,10 +13,13 @@ pub use nodes::{
     NodeArithmeticExpr,
     NodeBaseExpr,
     NodeArithmeticOperation,
-    NodeScope,
-    ResultType
+    NodeScope
 };
 
+#[cfg(test)]
+pub use nodes::{
+    ResultType
+};
 
 pub use parser::{
     Parser,

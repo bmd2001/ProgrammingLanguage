@@ -1,5 +1,5 @@
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Formatter};
 use either::{Either, Left};
 use crate::compiler::Token;
 use crate::compiler::tokenizer::Operator;
@@ -150,7 +150,7 @@ impl fmt::Display for NodeStmt {
 }
 
 impl fmt::Display for NodeProgram {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let stmt_count = self.stmts.len();
         for (i, stmt) in self.stmts.iter().enumerate() {
             write!(f, "{}", stmt)?;

@@ -17,6 +17,8 @@ impl<'a> StatementFactory<'a>{
     pub fn create(&mut self, stmts: &mut Vec<NodeStmt>){
         if !self.m_token_stream.is_err_in_stmt(){
             let _ = self.parse_stmt().map_or((), |stmt| stmts.push(stmt));
+        } else { 
+            self.log_error(ParserErrorType::ErrInvalidStatement, &self.m_token_stream.peek(0).unwrap())
         }
     }
 
