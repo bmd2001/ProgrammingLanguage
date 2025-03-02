@@ -1,4 +1,3 @@
-use std::any::type_name;
 use either::Either;
 use either::Either::{Left, Right};
 use crate::compiler::generator::architecture::TARGET_ARCH;
@@ -41,13 +40,14 @@ impl Generator {
     pub fn generate(&mut self){
         self.m_output.clear();
         self.m_output.push_str(TARGET_ARCH.get_program_header());
-        let stmts = self.m_prog.stmts.clone();
+        let stmts = self.m_prog.get_stmts();
         for stmt in stmts {
             self.generate_stmt(&stmt);
         }
         if !self.m_output.contains(TARGET_ARCH.get_exit_marker()){
             // TODO This boilerplate is also for a script that doesn't exit
             self.m_output.push_str(&Self::generate_comment("Boiler plate for empty script"));
+            self.m_output.push_str("\t");
             self.m_output.push_str(TARGET_ARCH.get_exit_instr());
             self.m_output.push_str("\n");
         }

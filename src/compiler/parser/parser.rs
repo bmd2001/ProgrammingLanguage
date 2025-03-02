@@ -1,5 +1,5 @@
 use super::nodes::{NodeProgram};
-use super::parser_logger::{ParserErrorType, ParserLogger};
+use super::parser_logger::{ParserLogger};
 use crate::compiler::tokenizer::{Token};
 use super::token_stream::TokenStream;
 use std::sync::{Arc, Mutex};
@@ -20,15 +20,18 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Option<NodeProgram> {
-        let mut prog = NodeProgram { stmts: Vec::new() };
-        while let Some(..) = self.m_token_stream.peek(0) {
+        let mut stmts = Vec::new();
+        while self.m_token_stream.peek(0).is_some() {
             let mut stmt_factory = StatementFactory::new(&mut self.m_token_stream, self.m_logger.clone());
-            stmt_factory.create(&mut prog.stmts);
+            stmt_factory.create(&mut stmts);
             self.m_token_stream.advance_stmt(true);
         }
         if self.flush_errors() {
             None
-        } else { Some(prog) }
+        } else {
+            let prog = NodeProgram { stmts };
+            Some(prog)
+        }
     }
     
     fn flush_errors(&mut self) -> bool{

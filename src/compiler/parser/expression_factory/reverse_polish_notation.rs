@@ -11,7 +11,7 @@ pub struct ReversePolishNotation<'a>{
 }
 
 impl<'a> ReversePolishNotation<'a>{
-    pub fn new(line: &'a mut TokenStream, m_logger: Arc<Mutex<ParserLogger>>) -> ReversePolishNotation{
+    pub fn new(line: &'a mut TokenStream, m_logger: Arc<Mutex<ParserLogger>>) -> ReversePolishNotation<'a>{
         ReversePolishNotation{m_line_stream: line, m_logger, m_stack: vec![], m_polish: vec![]}
     }
 
