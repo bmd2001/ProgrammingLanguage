@@ -1,7 +1,7 @@
 use either::Either;
 use either::Either::{Left, Right};
 use crate::compiler::generator::architecture::TARGET_ARCH;
-use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
+use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodePrint, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::generator::arithmetic_instructions::{ArithmeticInstructions};
 use crate::compiler::generator::stack_handler::StackHandler;
@@ -51,11 +51,14 @@ impl Generator {
             self.m_output.push_str(TARGET_ARCH.get_exit_instr());
             self.m_output.push_str("\n");
         }
+        self.m_output.push_str(&Self::generate_comment("| Utility Subroutines"));
+        self.m_output.push_str(TARGET_ARCH.get_subroutines().as_str());
     }
     
     fn generate_stmt(&mut self, stmt: &NodeStmt) {
         match stmt {
             NodeStmt::Exit(exit) => self.generate_exit(exit),
+            NodeStmt::Print(print) => self.generate_print(print),
             NodeStmt::ID(var) => self.generate_id(var),
             NodeStmt::Scope(scope) => self.generate_scope(scope),
         }
@@ -70,6 +73,16 @@ impl Generator {
         self.m_output.push_str(TARGET_ARCH.get_exit_instr());
         self.m_output.push_str("\n");
         self.m_output.push_str(&Self::generate_comment("Exit end call"));
+    }
+    
+    fn generate_print(&mut self, print: &NodePrint){
+        self.m_output.push_str(&Self::generate_comment("Print call"));
+        self.m_output.push_str(&Self::generate_comment(&format!("Printing \"{}\" to the terminal", print.expr)));
+        self.generate_arithmetic_expr(&print.expr);
+        self.m_output.push_str("\n");
+        self.pop("rax".to_string());
+        self.m_output.push_str(TARGET_ARCH.get_print_instr());
+        self.m_output.push_str("\n");
     }
     
     fn generate_id(&mut self, var: &NodeVariableAssignment) {

@@ -12,12 +12,18 @@ pub struct NodeProgram{
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeStmt {
     Exit(NodeExit),
+    Print(NodePrint),
     ID(NodeVariableAssignment),
     Scope(NodeScope)
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeExit {
+    pub(crate) expr: NodeArithmeticExpr
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NodePrint {
     pub(crate) expr: NodeArithmeticExpr
 }
 
@@ -133,10 +139,17 @@ impl fmt::Display for NodeExit {
     }
 }
 
+impl fmt::Display for NodePrint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "print({})", self.expr)
+    }
+}
+
 impl fmt::Display for NodeStmt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NodeStmt::Exit(exit) => write!(f, "{}", exit),
+            NodeStmt::Print(print) => write!(f, "{}", print),
             NodeStmt::ID(var_assign) => write!(f, "{}", var_assign),
             NodeStmt::Scope(scope) => {
                 write!(f, "{{")?;

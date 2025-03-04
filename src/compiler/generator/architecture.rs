@@ -124,7 +124,12 @@ impl Arch {
     // System operations
     pub fn get_program_header(&self) -> &str {
         match self {
-            Arch::X86_64 => "global _start\n_start:\n",
+            Arch::X86_64 => concat!(
+                "section .bss\n",
+                "\tbuffer resb 20\n",
+                "section .text\n",
+                "\tglobal _start\n",
+                "_start:\n", ),
             Arch::AArch64 => ".global _start\n_start:\n",
         }
     }
@@ -158,6 +163,70 @@ impl Arch {
                 Arch::AArch64 => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80",
             }
         }
+    }
+
+    pub fn get_print_instr(&self) -> &str {
+        concat!(
+            "\tlea rdi, [rel buffer+19]\n",
+            "\tcall int_to_string\n",
+            "\tmov rsi, rdi\n",
+            "\tinc rsi\n",
+            "\tinc rsi\n",
+            "\tcall print_string\n",
+        
+        )
+    }
+
+    pub fn get_subroutines(&self) -> String {
+        format!(
+            "{}\n\n{}",
+            self.get_int_to_str_subroutine(),
+            self.get_print_subroutine()
+        )
+    }
+
+    fn get_int_to_str_subroutine(&self) -> &str{
+        concat!(
+        "int_to_string:\n",
+        "\tmov rbx, 10\n",
+        "\tmov rcx, 0\n",
+        "\tcall .int_to_string_loop\n\n",
+        ".int_to_string_loop:\n",
+        "\txor rdx, rdx\n",
+        "\tdiv rbx\n",
+        "\tadd dl, '0'\n",
+        "\tmov [rdi], dl\n",
+        "\tdec rdi\n",
+        "\tinc rcx\n",
+        "\tcmp rax, 0\n",
+        "\tjnz .int_to_string_loop\n",
+        "\tret\n"
+        )
+    }
+
+    fn get_print_subroutine(&self) -> &str {
+        concat!(
+        "print_string:\n",
+        "\tlea rbx, [rel buffer+20]\n",
+        "\tmov al, [rsi]\n",
+        "\tcmp rsi, rbx\n",
+        "\tje .done\n",
+        "\tmov rax, 0x2000004\n",
+        "\tmov rdi, 1\n",
+        "\tmov rdx, 1\n",
+        "\tsyscall\n",
+        "\tinc rsi\n",
+        "\tjmp print_string\n",
+        ".done:\n",
+        "\tpush 10\n",
+        "\tlea rsi, [rsp]\n",
+        "\tmov rax, 0x2000004\n",
+        "\tmov rdi, 1\n",
+        "\tmov rdx, 1\n",
+        "\tsyscall\n",
+        "\tadd rsp, 8\n",
+        "\tret\n"
+        )
     }
 }
 
