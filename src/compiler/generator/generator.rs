@@ -52,6 +52,7 @@ impl Generator {
             self.m_output.push_str("\n");
         }
         self.m_output.push_str(&Self::generate_comment("| Utility Subroutines"));
+        self.m_output.push_str("\n");
         self.m_output.push_str(TARGET_ARCH.get_subroutines().as_str());
     }
     
@@ -80,7 +81,12 @@ impl Generator {
         self.m_output.push_str(&Self::generate_comment(&format!("Printing \"{}\" to the terminal", print.expr)));
         self.generate_arithmetic_expr(&print.expr);
         self.m_output.push_str("\n");
-        self.pop("rax".to_string());
+        let acc_reg = if cfg!(target_arch = "aarch64") {
+            "x0"
+        } else {
+            "rax" // default fallback
+        };
+        self.pop(acc_reg.to_string());
         self.m_output.push_str(TARGET_ARCH.get_print_instr());
         self.m_output.push_str("\n");
     }
