@@ -1,10 +1,13 @@
+use crate::compiler::generator::os::{OS, TARGET_OS};
+use crate::compiler::generator::subroutines::Subroutines;
+
 #[cfg(target_arch = "x86_64")]
 pub const TARGET_ARCH: Arch = Arch::X86_64;
 
 #[cfg(target_arch = "aarch64")]
 pub const TARGET_ARCH: Arch = Arch::AArch64;
 
-#[allow(dead_code)] // Only one arch will be used, so it's an expected behaviour
+#[allow(dead_code)] // Only one Arch will be used, so it's an expected behaviour
 #[derive(Debug)]
 pub enum Arch {
     X86_64,
@@ -52,10 +55,9 @@ impl Arch {
         match self {
             Arch::X86_64 => "mov rax, 1\n{exp_label}:\n\tcmp rcx, 0\n\tje {done_label}\n\timul rax, rdx\n\tdec rcx\n\tjmp {exp_label}\n{done_label}:",
             Arch::AArch64 => {
-                if cfg!(target_os = "linux") {
-                    "mov x0, #1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
-                } else {
-                    "mov x0, 1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
+                match TARGET_OS {
+                    OS::Linux => "mov x0, #1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:",
+                    _ => "mov x0, 1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
                 }
             }
         }
@@ -65,10 +67,9 @@ impl Arch {
         match self {
             Arch::X86_64 => format!("mov rax, {}", value),
             Arch::AArch64 => {
-                if cfg!(target_os = "linux") {
-                    format!("mov x0, #{}", value)
-                } else {
-                    format!("mov x0, {}", value)
+                match TARGET_OS {
+                    OS::Linux => format!("mov x0, #{}", value),
+                    _ => format!("mov x0, {}", value)
                 }
             }
         }
@@ -149,84 +150,49 @@ impl Arch {
     }
 
     pub fn get_exit_instr(&self) -> &str {
-        #[cfg(target_os = "linux")]
-        {
-            match self {
-                Arch::X86_64 => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
-                Arch::AArch64 => "mov x8, #93\n\tmov x0, #0\n\tsvc #0",
+        match TARGET_OS{
+            OS::Linux => {
+                match self {
+                    Arch::X86_64 => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
+                    Arch::AArch64 => "mov x8, #93\n\tmov x0, #0\n\tsvc #0",
+                }
             }
-        }
-        #[cfg(target_os = "macos")]
-        {
-            match self {
-                Arch::X86_64 => "mov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall",
-                Arch::AArch64 => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80",
+            _ => {
+                match self {
+                    Arch::X86_64 => "mov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall",
+                    Arch::AArch64 => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80",
+                }
             }
         }
     }
 
     pub fn get_print_instr(&self) -> &str {
-        concat!(
-            "\tlea rdi, [rel buffer+19]\n",
-            "\tcall int_to_string\n",
-            "\tmov rsi, rdi\n",
-            "\tinc rsi\n",
-            "\tinc rsi\n",
-            "\tcall print_string\n",
-        
-        )
+        match self {
+            Arch::X86_64 => {
+                concat!(
+                "\tlea rdi, [rel buffer+19]\n",
+                "\tcall int_to_string\n",
+                "\tmov rsi, rdi\n",
+                "\tinc rsi\n",
+                "\tinc rsi\n",
+                "\tcall print_string\n",
+                )
+            },
+            Arch::AArch64 => {
+                concat!(
+                "\tldr x0, =buffer\n",
+                "\tadd x0, x0, 19\n",
+                "\tbl int_to_string\n",
+                "\tmov x1, x0\n",
+                "\tadd x1, x1, 2\n",
+                "\tbl print_string\n",
+                )
+            }
+        }
     }
 
     pub fn get_subroutines(&self) -> String {
-        format!(
-            "{}\n\n{}",
-            self.get_int_to_str_subroutine(),
-            self.get_print_subroutine()
-        )
-    }
-
-    fn get_int_to_str_subroutine(&self) -> &str{
-        concat!(
-        "int_to_string:\n",
-        "\tmov rbx, 10\n",
-        "\tmov rcx, 0\n",
-        "\tcall .int_to_string_loop\n\n",
-        ".int_to_string_loop:\n",
-        "\txor rdx, rdx\n",
-        "\tdiv rbx\n",
-        "\tadd dl, '0'\n",
-        "\tmov [rdi], dl\n",
-        "\tdec rdi\n",
-        "\tinc rcx\n",
-        "\tcmp rax, 0\n",
-        "\tjnz .int_to_string_loop\n",
-        "\tret\n"
-        )
-    }
-
-    fn get_print_subroutine(&self) -> &str {
-        concat!(
-        "print_string:\n",
-        "\tlea rbx, [rel buffer+20]\n",
-        "\tmov al, [rsi]\n",
-        "\tcmp rsi, rbx\n",
-        "\tje .done\n",
-        "\tmov rax, 0x2000004\n",
-        "\tmov rdi, 1\n",
-        "\tmov rdx, 1\n",
-        "\tsyscall\n",
-        "\tinc rsi\n",
-        "\tjmp print_string\n",
-        ".done:\n",
-        "\tpush 10\n",
-        "\tlea rsi, [rsp]\n",
-        "\tmov rax, 0x2000004\n",
-        "\tmov rdi, 1\n",
-        "\tmov rdx, 1\n",
-        "\tsyscall\n",
-        "\tadd rsp, 8\n",
-        "\tret\n"
-        )
+        Subroutines::new().generate()
     }
 }
 

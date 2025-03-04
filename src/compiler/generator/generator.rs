@@ -52,6 +52,7 @@ impl Generator {
             self.m_output.push_str("\n");
         }
         self.m_output.push_str(&Self::generate_comment("| Utility Subroutines"));
+        self.m_output.push_str("\n");
         self.m_output.push_str(TARGET_ARCH.get_subroutines().as_str());
     }
     
