@@ -106,6 +106,10 @@ impl Tokenizer {
                 self.m_parenthesis_handler.activate_function_detector();
                 Some(Token::Exit {span : self.get_span(buf.len())})
             },
+            "print" => {
+                self.m_parenthesis_handler.activate_function_detector();
+                Some(Token::Print {span : self.get_span(buf.len())})
+            },
             "**" => Some(Token::Operator(Operator::Exponent {span : self.get_span(buf.len())})),
             "//" => Some(Token::Operator(Operator::Division {span : self.get_span(buf.len())})),
             "&&" => Some(Token::Operator(Operator::And { span: self.get_span(buf.len()) })),
