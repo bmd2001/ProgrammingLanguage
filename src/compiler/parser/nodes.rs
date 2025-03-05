@@ -245,6 +245,19 @@ mod test_nodes {
         let formatted = format!("{}", NodeStmt::Exit(exit_node));
         assert_eq!(formatted, "exit(10)");
     }
+    
+    #[test]
+    fn test_formatting_node_print(){
+        let dummy_span = Span::new(0, 0, 0);
+        let num_token = Token::Number { value: "10".to_string(), span: dummy_span };
+        let base_expr = NodeBaseExpr::Num(num_token);
+
+        let print_node = NodePrint { expr: NodeArithmeticExpr::Base(base_expr) };
+
+        // Testing NodeExit
+        let formatted = format!("{}", NodeStmt::Print(print_node));
+        assert_eq!(formatted, "print(10)");
+    }
 
     #[test]
     fn test_formatting_node_variable_assignment() {

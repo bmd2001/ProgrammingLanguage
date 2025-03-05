@@ -91,3 +91,29 @@ fn get_print_aarch64_mac() -> String {
     "\tret\n"
     ).to_string()
 }
+
+
+
+#[cfg(test)]
+mod test_subroutine_print{
+    use super::*;
+    
+    #[test]
+    fn test_subroutine(){
+        let result = get_print_subroutine();
+        match TARGET_ARCH {
+            Arch::X86_64 => {
+                match TARGET_OS {
+                    OS::Linux => assert_eq!(result, get_print_x86_64_linux()),
+                    _ => assert_eq!(result, get_print_x86_64_mac()),
+                }
+            }
+            Arch::AArch64 => {
+                match TARGET_OS {
+                    OS::Linux => assert_eq!(result, get_print_aarch64_linux()),
+                    _ => assert_eq!(result, get_print_aarch64_mac())
+                }
+            }
+        }
+    }
+}
