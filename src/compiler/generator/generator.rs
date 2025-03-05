@@ -1,7 +1,7 @@
 use either::Either;
 use either::Either::{Left, Right};
 use crate::compiler::generator::architecture::TARGET_ARCH;
-use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
+use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodePrint, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::generator::arithmetic_instructions::{ArithmeticInstructions};
 use crate::compiler::generator::stack_handler::StackHandler;
@@ -51,11 +51,15 @@ impl Generator {
             self.m_output.push_str(TARGET_ARCH.get_exit_instr());
             self.m_output.push_str("\n");
         }
+        self.m_output.push_str(&Self::generate_comment("| Utility Subroutines"));
+        self.m_output.push_str("\n");
+        self.m_output.push_str(TARGET_ARCH.get_subroutines().as_str());
     }
     
     fn generate_stmt(&mut self, stmt: &NodeStmt) {
         match stmt {
             NodeStmt::Exit(exit) => self.generate_exit(exit),
+            NodeStmt::Print(print) => self.generate_print(print),
             NodeStmt::ID(var) => self.generate_id(var),
             NodeStmt::Scope(scope) => self.generate_scope(scope),
         }
@@ -70,6 +74,21 @@ impl Generator {
         self.m_output.push_str(TARGET_ARCH.get_exit_instr());
         self.m_output.push_str("\n");
         self.m_output.push_str(&Self::generate_comment("Exit end call"));
+    }
+    
+    fn generate_print(&mut self, print: &NodePrint){
+        self.m_output.push_str(&Self::generate_comment("Print call"));
+        self.m_output.push_str(&Self::generate_comment(&format!("Printing \"{}\" to the terminal", print.expr)));
+        self.generate_arithmetic_expr(&print.expr);
+        self.m_output.push_str("\n");
+        let acc_reg = if cfg!(target_arch = "aarch64") {
+            "x0"
+        } else {
+            "rax" // default fallback
+        };
+        self.pop(acc_reg.to_string());
+        self.m_output.push_str(TARGET_ARCH.get_print_instr());
+        self.m_output.push_str("\n");
     }
     
     fn generate_id(&mut self, var: &NodeVariableAssignment) {
@@ -466,6 +485,23 @@ mod test_generator{
         let should_contain = vec![
             "Boiler plate for empty script",
             TARGET_ARCH.get_exit_instr()
+        ];
+        assert_str_in_out_assembly(&gen, should_contain);
+    }
+    
+    #[test]
+    fn test_generate_print(){
+        let dummy_span = Span::new(0, 0, 0);
+        let expr = NodeArithmeticExpr::Base(NodeBaseExpr::Num(Token::Number { value: "42".to_string(), span: dummy_span }));
+        let print_stmt = NodeStmt::Print(NodePrint { expr });
+        let mut gen = Generator::new(NodeProgram { stmts: vec![print_stmt] });
+
+        gen.generate();
+        let should_contain = vec![
+            "buffer",
+            "int_to_string",
+            "print_string",
+            ".int_to_string_loop"
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
