@@ -400,8 +400,17 @@ mod test_architecture{
     fn test_prog_header(){
         let arch = get_arch();
         match arch {
-            Arch::X86_64 => assert_eq!(arch.get_program_header(),"global _start\n_start:\n"),
-            Arch::AArch64 => assert_eq!(arch.get_program_header(), ".global _start\n_start:\n")
+            Arch::X86_64 => assert_eq!(arch.get_program_header(),concat!(
+            "section .bss\n",
+            "buffer resb 20\n",
+            "section .text\n",
+            "\tglobal _start\n",
+            "_start:\n",)),
+            Arch::AArch64 => assert_eq!(arch.get_program_header(), concat!(
+            ".global _start\n",
+            ".lcomm buffer, 20\n\n",
+            ".text\n",
+            "_start:\n",))
         }
     }
     
