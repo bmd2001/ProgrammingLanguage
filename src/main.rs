@@ -54,6 +54,7 @@ fn main() {
 
             let current_dir = env::current_dir().expect("Failed to get current directory");
 
+            // Needs refactoring
             match os.as_str() {
                 "macos" => {
                     match arch.as_str() {
@@ -164,7 +165,7 @@ fn main() {
                     match arch.as_str() {
                         "x86_64" => {
                             run_command(
-                                Command::new("nasm")
+                                Command::new("yasm")
                                     .current_dir(&current_dir)
                                     .arg("-f")
                                     .arg("win64")
@@ -203,11 +204,13 @@ fn main() {
                         ld_command.arg("-target").arg("aarch64-pc-windows-gnu");
                     }
                     ld_command
+                        .arg("-nostdlib")
                         .arg("-o")
                         .arg(format!("{}out.exe", out_dir))
                         .arg(&out_o_file)
                         .arg("--entry")
-                        .arg("_start");
+                        .arg("_start")
+                        .arg("-lkernel32");
 
                     let ld_output = run_command(&mut ld_command);
                     

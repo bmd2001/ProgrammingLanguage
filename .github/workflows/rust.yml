@@ -29,9 +29,6 @@ jobs:
           - os: windows-latest
             arch: x86_64
             rust_target: x86_64-pc-windows-msvc
-          - os: windows-latest
-            arch: x86_64
-            rust_target: x86_64-pc-windows-gnu
 
     steps:
       - name: Work around spurious network errors in curl 8.0
@@ -64,12 +61,10 @@ jobs:
         run: |
           sudo apt update && sudo apt install -y build-essential gcc
 
-      - name: Install MinGW for Windows GNU target
-        if: runner.os == 'Windows' && matrix.rust_target == 'x86_64-pc-windows-gnu'
-        shell: bash
-        run: |
-          choco install mingw -y
-          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" >> $GITHUB_PATH
+      - name: Install Yasm on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install yasm -y
 
       - name: Install NASM (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
@@ -78,13 +73,6 @@ jobs:
       - name: Install NASM (macOS)
         if: matrix.os == 'macos-13'
         run: brew install nasm
-
-      - name: Install NASM (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          choco install nasm -y
-          echo "C:/ProgramData/chocolatey/lib/nasm/tools/install/nasm" >> $GITHUB_PATH
 
       - name: Install dependencies (Linux aarch64)
         if: matrix.os == 'ubuntu-latest'
@@ -98,13 +86,6 @@ jobs:
 
       - name: Install Rust target
         run: rustup target add ${{ matrix.rust_target }}
-
-      - name: Convert BRS file encoding (Windows)
-        if: runner.os == 'Windows'
-        shell: bash
-        run: |
-          content=$(cat .github/workflows/run.brs)
-          echo -n "$content" > .github/workflows/run.brs
 
       - name: Run
         shell: bash
@@ -121,9 +102,6 @@ jobs:
       - name: Run Tests with Coverage (Windows) for ${{ matrix.rust_target }}
         if: runner.os == 'Windows'
         shell: bash
-        env:
-          RUSTUP_TOOLCHAIN: nightly
-          RUSTFLAGS: "-Zbuild-std=std,profiler_builtins -Zinstrument-coverage"
         run: |
           mkdir -p coverage
           cargo install cargo-llvm-cov
@@ -154,6 +132,7 @@ jobs:
         with:
           path: coverage/
           merge-multiple: true
+
       - name: Display structure of downloaded files
         run: ls -R coverage/
 
@@ -163,10 +142,12 @@ jobs:
       - name: Fix Paths in Coverage Reports
         run: |
           for f in coverage/*.info; do
+            sed -i 's|\\|/|g' "$f"
             sed -i 's|/Users/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
             sed -i 's|/home/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
+            sed -i 's|C:/Users/runneradmin/work/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
+            sed -i 's|D:/a/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
           done
-
 
       - name: Merge Coverage Reports
         run: |
@@ -175,14 +156,15 @@ jobs:
                -a coverage/coverage-x86_64-apple-darwin.info \
                -a coverage/coverage-x86_64-unknown-linux-gnu.info \
                -a coverage/coverage-x86_64-pc-windows-msvc.info \
-               -a coverage/coverage-aarch64-pc-windows-msvc.info \
-               -a coverage/coverage-x86_64-pc-windows-gnu.info \
                -o coverage/lcov_${{ github.event.pull_request.number }}.info
 
       - name: Fix Coverage Paths
         run: |
+          sed -i 's|\\|/|g' coverage/lcov_${{ github.event.pull_request.number }}.info
           sed -i 's|/Users/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' coverage/lcov_${{ github.event.pull_request.number }}.info
-
+          sed -i 's|/home/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' coverage/lcov_${{ github.event.pull_request.number }}.info
+          sed -i 's|C:/Users/runneradmin/work/ProgrammingLanguage/ProgrammingLanguage|.|g' coverage/lcov_${{ github.event.pull_request.number }}.info
+          sed -i 's|D:/a/ProgrammingLanguage/ProgrammingLanguage|.|g' coverage/lcov_${{ github.event.pull_request.number }}.info
 
       - name: Upload Final Coverage Report
         uses: actions/upload-artifact@v4

@@ -116,8 +116,8 @@ impl InstructionFactory {
     // System operations
     pub fn get_program_header(&self) -> &str {
         match (TARGET_ARCH, TARGET_OS) {
-            (Arch::X86_64, OS::Windows) => "extern ExitProcess\nsection .text\n_start:\n",
-            (Arch::AArch64, OS::Windows) => "extern ExitProcess\nsection .text\n_start:\n",
+            (Arch::X86_64, OS::Windows) => "extern ExitProcess\nglobal _start\n_start:\n",
+            (Arch::AArch64, OS::Windows) => "extern ExitProcess\nglobal _start\n_start:\n",
             (Arch::X86_64, _) => "global _start\n_start:\n",
             (Arch::AArch64, _) => ".global _start\n_start:\n",
         }
@@ -342,8 +342,8 @@ mod test_architecture{
     fn test_prog_header(){
         let instr_factory = InstructionFactory{};
         match (TARGET_ARCH, TARGET_OS) {
-            (Arch::X86_64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern ExitProcess\nsection .text\n_start:\n"),
-            (Arch::AArch64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern ExitProcess\nsection .text\n_start:\n"),
+            (Arch::X86_64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern ExitProcess\nglobal _start\n_start:\n"),
+            (Arch::AArch64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern ExitProcess\nglobal _start\n_start:\n"),
             (Arch::X86_64, _) => assert_eq!(instr_factory.get_program_header(),"global _start\n_start:\n"),
             (Arch::AArch64, _) => assert_eq!(instr_factory.get_program_header(), ".global _start\n_start:\n")
         }
