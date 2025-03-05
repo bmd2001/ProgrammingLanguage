@@ -45,3 +45,16 @@ fn get_int_to_str_aarch64() -> String{
     "\tret\n"
     ).to_string()
 }
+
+#[cfg(test)]
+mod test_subroutine_int_to_str {
+    use super::*;
+    
+    #[test]
+    fn test_subroutine(){
+        match TARGET_ARCH { 
+            Arch::X86_64 => assert_eq!(get_int_to_str_subroutine(), get_int_to_str_x86_64()),
+            Arch::AArch64 => assert_eq!(get_int_to_str_subroutine(), get_int_to_str_aarch64())
+        }
+    }
+}

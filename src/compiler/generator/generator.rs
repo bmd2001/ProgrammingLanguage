@@ -444,6 +444,23 @@ mod test_generator{
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
+    
+    #[test]
+    fn test_generate_print(){
+        let dummy_span = Span::new(0, 0, 0);
+        let expr = NodeArithmeticExpr::Base(NodeBaseExpr::Num(Token::Number { value: "42".to_string(), span: dummy_span }));
+        let print_stmt = NodeStmt::Print(NodePrint { expr });
+        let mut gen = Generator::new(NodeProgram { stmts: vec![print_stmt] });
+
+        gen.generate();
+        let should_contain = vec![
+            "buffer",
+            "int_to_string",
+            "print_string",
+            ".int_to_string_loop"
+        ];
+        assert_str_in_out_assembly(&gen, should_contain);
+    }
 
     #[test]
     fn test_generate_id(){

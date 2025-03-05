@@ -284,6 +284,21 @@ mod test_tokenizer{
             );
             assert_eq!(tokenizer.get_tokens(), expected_token);
         }
+        
+        #[test]
+        fn test_print(){
+            let mut tokenizer = Tokenizer::new();
+            tokenizer.tokenize("print(0)");
+            
+            let expected_token = vec!(
+                Token::Print { span: Span::new(0, 0, 4) },
+                Token::OpenBracket { span: Span::new(0, 5, 5) },
+                Token::Number { value: "0".to_string(), span: Span::new(0, 6, 6) },
+                Token::ClosedBracket { span: Span::new(0, 7, 7) }
+            );
+            assert_eq!(tokenizer.get_tokens(), expected_token);
+        }
+        
         #[test]
         fn test_multiple_whitespaces_input() {
             let mut tokenizer = Tokenizer::new();
@@ -315,7 +330,7 @@ mod test_tokenizer{
         #[test]
         fn test_multiline_input() {
             let mut tokenizer = Tokenizer::new();
-            tokenizer.tokenize("x = 0\nexit(x)\n{}");
+            tokenizer.tokenize("x = 0\nexit(x)\n{}\nprint(1)");
 
             let expected_token = vec!(
                 Token::ID{ name: "x".to_string(), span: Span::new(0, 0, 0) },
@@ -331,6 +346,11 @@ mod test_tokenizer{
                 Token::NewLine { span: Span::new(1, 7, 7)},
                 Token::OpenCurlyBracket { span: Span::new(2, 0, 0)},
                 Token::ClosedCurlyBracket { span: Span::new(2, 1, 1)},
+                Token::NewLine { span: Span::new(2, 2, 2)},
+                Token::Print { span: Span::new(3, 0, 4) },
+                Token::OpenBracket { span: Span::new(3, 5, 5) },
+                Token::Number { value: "1".to_string(), span: Span::new(3, 6, 6) },
+                Token::ClosedBracket { span: Span::new(3, 7, 7) }
             );
             assert_eq!(tokenizer.get_tokens(), expected_token);
         }
