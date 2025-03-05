@@ -55,6 +55,7 @@ impl InstructionFactory {
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::X86_64, _) => "mov rax, 1\n{exp_label}:\n\tcmp rcx, 0\n\tje {done_label}\n\timul rax, rdx\n\tdec rcx\n\tjmp {exp_label}\n{done_label}:",
             (Arch::AArch64, OS::Linux) => "mov x0, #1\n{exp_label}:\n\tcmp x1, #0\n\tbeq {done_label}\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb {exp_label}\n{done_label}:",
+            (Arch::AArch64, OS::Windows) => "mov x0, #1\n{exp_label}:\n\tcmp x1, #0\n\tbeq {done_label}\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb {exp_label}\n{done_label}:",
             (Arch::AArch64, _) => "mov x0, 1\n{exp_label}:\n\tcmp x1, #0\n\tbeq {done_label}\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb {exp_label}\n{done_label}:"
         }
     }
@@ -63,6 +64,7 @@ impl InstructionFactory {
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::X86_64, _) => format!("mov rax, {}", value),
             (Arch::AArch64, OS::Linux) => format!("mov x0, #{}", value),
+            (Arch::AArch64, OS::Windows) => format!("mov x0, #{}", value),
             (Arch::AArch64, _) => format!("mov x0, {}", value)
         }
     }
@@ -113,9 +115,11 @@ impl InstructionFactory {
 
     // System operations
     pub fn get_program_header(&self) -> &str {
-        match TARGET_ARCH {
-            Arch::X86_64 => "global _start\n_start:\n",
-            Arch::AArch64 => ".global _start\n_start:\n",
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, OS::Windows) => "extern ExitProcess\nsection .text\n_start:\n",
+            (Arch::AArch64, OS::Windows) => "extern ExitProcess\nsection .text\n_start:\n",
+            (Arch::X86_64, _) => "global _start\n_start:\n",
+            (Arch::AArch64, _) => ".global _start\n_start:\n",
         }
     }
 
@@ -136,8 +140,10 @@ impl InstructionFactory {
     pub fn get_exit_instr(&self) -> &str {
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::X86_64, OS::Linux) => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
+            (Arch::X86_64, OS::Windows) => "mov rcx, 0\n\tcall ExitProcess",
             (Arch::X86_64, _) => "mov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall",
             (Arch::AArch64, OS::Linux) => "mov x8, #93\n\tmov x0, #0\n\tsvc #0",
+            (Arch::AArch64, OS::Windows) => "mov x0, 0\n\tbl ExitProcess",
             (Arch::AArch64, _) => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80"
         }
     }
@@ -335,9 +341,11 @@ mod test_architecture{
     #[test]
     fn test_prog_header(){
         let instr_factory = InstructionFactory{};
-        match TARGET_ARCH {
-            Arch::X86_64 => assert_eq!(instr_factory.get_program_header(),"global _start\n_start:\n"),
-            Arch::AArch64 => assert_eq!(instr_factory.get_program_header(), ".global _start\n_start:\n")
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern ExitProcess\nsection .text\n_start:\n"),
+            (Arch::AArch64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern ExitProcess\nsection .text\n_start:\n"),
+            (Arch::X86_64, _) => assert_eq!(instr_factory.get_program_header(),"global _start\n_start:\n"),
+            (Arch::AArch64, _) => assert_eq!(instr_factory.get_program_header(), ".global _start\n_start:\n")
         }
     }
     
@@ -367,12 +375,16 @@ mod test_architecture{
             (Arch::X86_64, OS::Linux) => concat!("mov rax, 60\n",
                                                 "\tmov rdi, 0\n",
                                                 "\tsyscall"),
+            (Arch::X86_64, OS::Windows) => concat!("mov rcx, 0\n",
+                                                "\tcall ExitProcess"),
             (Arch::X86_64, _) => concat!("mov rax, 0x2000001\n",
                                         "\tmov rdi, 0\n",
                                         "\tsyscall"),
             (Arch::AArch64, OS::Linux) => concat!("mov x8, #93\n",
-                                        "\tmov x0, #0\n",
-                                        "\tsvc #0"),
+                                                "\tmov x0, #0\n",
+                                                "\tsvc #0"),
+            (Arch::AArch64, OS::Windows) => concat!("mov x0, 0\n",
+                                                "\tbl ExitProcess"),
             (Arch::AArch64, _) => concat!("ldr x16, =0x2000001\n",
                                         "\tmov x0, 0\n",
                                         "\tsvc #0x80")

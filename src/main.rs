@@ -160,6 +160,59 @@ fn main() {
 
                     println!("{}", ld_output);
                 },
+                "windows" => {
+                    match arch.as_str() {
+                        "x86_64" => {
+                            run_command(
+                                Command::new("nasm")
+                                    .current_dir(&current_dir)
+                                    .arg("-f")
+                                    .arg("win64")
+                                    .arg(&out_asm_file)
+                                    .arg("-o")
+                                    .arg(&out_o_file)
+                            );
+                        },
+                        "aarch64" => {
+                            run_command(
+                                Command::new("aarch64-w64-mingw32-as")
+                                    .current_dir(&current_dir)
+                                    .arg("-o")
+                                    .arg(&out_o_file)
+                                    .arg(&out_asm_file)
+                            );
+                        },
+                        _ => {
+                            eprintln!("Unsupported architecture for Windows");
+                            std::process::exit(1);
+                        },
+                    }
+
+                    let ld_cmd = match arch.as_str() {
+                        "x86_64" => "x86_64-w64-mingw32-gcc",
+                        "aarch64" => "aarch64-w64-mingw32-gcc",
+                        _ => {
+                            eprintln!("Unsupported architecture for linking on Windows");
+                            std::process::exit(1);
+                        }
+                    };
+
+                    let mut ld_command = Command::new(ld_cmd);
+                    ld_command.current_dir(&current_dir);
+                    if arch == "aarch64" {
+                        ld_command.arg("-target").arg("aarch64-pc-windows-gnu");
+                    }
+                    ld_command
+                        .arg("-o")
+                        .arg(format!("{}out.exe", out_dir))
+                        .arg(&out_o_file)
+                        .arg("--entry")
+                        .arg("_start");
+
+                    let ld_output = run_command(&mut ld_command);
+                    
+                    println!("{}", ld_output);
+            },
                 _ => eprintln!("Unsupported OS"),
             }
 

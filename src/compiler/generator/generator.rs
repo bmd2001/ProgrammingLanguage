@@ -17,6 +17,24 @@ impl Generator {
     pub fn new(prog : NodeProgram) -> Self {
         Generator {m_prog: prog, m_output: "".to_string(), m_stack: StackHandler::new(), m_stack_size: 0, m_num_exponentials: 0}
     }
+
+    pub fn generate_comment(comment: &str) -> String {
+        if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
+            format!("\t// {}\n", comment)
+        } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+            format!("\t; {}\n", comment)
+        } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+            format!("\t; {}\n", comment)
+        } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+            format!("\t; {}\n", comment)
+        } else if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+            format!("\t; {}\n", comment)
+        } else if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+            format!("\t; {}\n", comment)
+        } else {
+            String::new()
+        }
+    }
     
     pub fn get_out_assembly(& self) -> String {
         self.m_output.clone()
