@@ -54,6 +54,8 @@ impl Arch {
             Arch::AArch64 => {
                 if cfg!(target_os = "linux") {
                     "mov x0, #1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
+                } else if cfg!(target_os = "windows") {
+                    "mov x0, #1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
                 } else {
                     "mov x0, 1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
                 }
@@ -66,6 +68,8 @@ impl Arch {
             Arch::X86_64 => format!("mov rax, {}", value),
             Arch::AArch64 => {
                 if cfg!(target_os = "linux") {
+                    format!("mov x0, #{}", value)
+                } else if cfg!(target_os = "windows") {
                     format!("mov x0, #{}", value)
                 } else {
                     format!("mov x0, {}", value)
@@ -123,9 +127,16 @@ impl Arch {
 
     // System operations
     pub fn get_program_header(&self) -> &str {
-        match self {
-            Arch::X86_64 => "global _start\n_start:\n",
-            Arch::AArch64 => ".global _start\n_start:\n",
+        if cfg!(target_os = "windows") {
+            match self {
+                Arch::X86_64 => "extern ExitProcess\nsection .text\n_start:\n",
+                Arch::AArch64 => "extern ExitProcess\nsection .text\n_start:\n",
+            }
+        } else {
+            match self {
+                Arch::X86_64 => "global _start\n_start:\n",
+                Arch::AArch64 => ".global _start\n_start:\n",
+            }
         }
     }
 
@@ -156,6 +167,13 @@ impl Arch {
             match self {
                 Arch::X86_64 => "mov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall",
                 Arch::AArch64 => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80",
+            }
+        }
+        #[cfg(target_os = "windows")]
+        {
+            match self {
+                Arch::X86_64 => "mov rcx, 0\n\tcall ExitProcess",
+                Arch::AArch64 => "mov x0, 0\n\tbl ExitProcess",
             }
         }
     }
@@ -359,9 +377,16 @@ mod test_architecture{
     #[test]
     fn test_prog_header(){
         let arch = get_arch();
-        match arch {
-            Arch::X86_64 => assert_eq!(arch.get_program_header(),"global _start\n_start:\n"),
-            Arch::AArch64 => assert_eq!(arch.get_program_header(), ".global _start\n_start:\n")
+        if cfg!(target_os = "windows") {
+            match arch {
+                Arch::X86_64 => assert_eq!(arch.get_program_header(), "extern ExitProcess\nsection .text\n_start:\n"),
+                Arch::AArch64 => assert_eq!(arch.get_program_header(), "extern ExitProcess\nsection .text\n_start:\n"),
+            }
+        } else {
+            match arch {
+                Arch::X86_64 => assert_eq!(arch.get_program_header(), "global _start\n_start:\n"),
+                Arch::AArch64 => assert_eq!(arch.get_program_header(), ".global _start\n_start:\n"),
+            }
         }
     }
     
@@ -394,6 +419,11 @@ mod test_architecture{
                                "\tmov rdi, 0\n",
                                "\tsyscall")
                     )
+                } else if cfg!(target_os = "windows") {
+                    assert_eq!(arch.get_exit_instr(),
+                               concat!("mov rcx, 0\n",
+                               "\tcall ExitProcess")
+                    )
                 } else {
                     assert_eq!(arch.get_exit_instr(),
                                concat!("mov rax, 0x2000001\n",
@@ -407,6 +437,11 @@ mod test_architecture{
                            concat!("mov x8, #93\n",
                                "\tmov x0, #0\n",
                                "\tsvc #0")
+                )
+            } else if cfg!(target_os = "windows") {
+                assert_eq!(arch.get_exit_instr(),
+                            concat!("mov x0, 0\n",
+                            "\tbl ExitProcess")
                 )
             } else {
                 assert_eq!(arch.get_exit_instr(),

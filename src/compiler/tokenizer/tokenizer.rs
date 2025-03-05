@@ -36,8 +36,9 @@ impl Tokenizer {
     
     pub fn tokenize(&mut self, input: &str){
         self.clear();
+        let normalized_input = input.replace("\r", "");
         let mut buf = String::new();
-        let mut chars = input.chars().peekable();
+        let mut chars = normalized_input.chars().peekable();
         while let Some(ch) = chars.next(){
             buf.push(ch);
             if let Some(token) = self.check_buf(&buf, &mut chars) {
@@ -67,6 +68,10 @@ impl Tokenizer {
     }
     
     fn match_ch(&mut self, ch: char, peek: Option<&char>) -> Option<Token> {
+        if ch == '\r' {
+            return None;
+        }
+
         let span = Span::new(self.m_line, self.m_row, self.m_row);
         match ch {
             '(' | ')' => Some(self.m_parenthesis_handler.emit_bracket_token(span, ch == '(')),
