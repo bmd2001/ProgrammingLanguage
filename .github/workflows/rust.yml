@@ -83,8 +83,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          choco install nasm -y
-          echo "C:/ProgramData/chocolatey/lib/nasm/tools/install/nasm" >> $GITHUB_PATH
+          choco install nasm
+          echo "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install dependencies (Linux aarch64)
         if: matrix.os == 'ubuntu-latest'
