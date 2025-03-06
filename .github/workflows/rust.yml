@@ -85,6 +85,10 @@ jobs:
         run: |
           choco install nasm -y
           echo "C:/ProgramData/chocolatey/lib/nasm/tools/install/nasm" >> $GITHUB_PATH
+          where nasm || echo "NASM not found!"
+          nasm -v
+          choco list --local-only
+          echo $env:PATH
 
       - name: Install dependencies (Linux aarch64)
         if: matrix.os == 'ubuntu-latest'
