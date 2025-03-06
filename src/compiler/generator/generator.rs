@@ -340,7 +340,6 @@ impl Generator {
 mod test_generator{
     use std::iter::{zip, Zip};
     use std::panic;
-    use std::panic::AssertUnwindSafe;
     use std::vec::IntoIter;
     use crate::compiler::parser::ResultType;
     use crate::compiler::span::Span;

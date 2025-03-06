@@ -15,21 +15,23 @@ fn main() {
 
     let file = Path::new(&args[1]); // No need for `as_str()`
 
-    let mut out_dir = String::from("./");
+    let mut out_dir = Path::new("./");
 
     if let Some(out_id) = args.iter().position(|s| s == "--outdir") {
         if let Some(dir) = args.get(out_id + 1) {
-            out_dir = dir.clone(); // Use owned string to avoid borrowing issues
+            out_dir = Path::new(dir); // Use owned string to avoid borrowing issues
         }
     }
 
     let file_name = file.file_name().unwrap().to_str().unwrap();
-    let out_asm_file = format!("{}{}", out_dir, file_name.replace(".brs", ".asm"));
-    let out_o_file = format!("{}{}", out_dir, file_name.replace(".brs", ".o"));
+    let out_asm_file = out_dir.join(file_name.replace(".brs", ".asm"));
+    let out_o_file = out_dir.join(file_name.replace(".brs", ".o"));
+    let final_file = out_dir.join(file_name.replace(".brs", ""));
 
-    println!("In file {}", file.to_str().unwrap());
-    println!("Out file {}", out_asm_file);
-    println!("Out file {}", out_o_file);
+    println!("In file {}", file.display());
+    println!("Out ASM file {}", out_asm_file.display());
+    println!("Out o file {}", out_o_file.display());
+    println!("Final file {}", final_file.display());
 
     let contents = fs::read_to_string(file)
         .expect("Should have been able to read the file");
@@ -62,6 +64,8 @@ fn main() {
                                     .current_dir(&current_dir)
                                     .arg("-f")
                                     .arg("macho64")
+                                    .arg("-o")
+                                    .arg(&out_o_file)
                                     .arg(&out_asm_file)
                             );
 
@@ -73,7 +77,7 @@ fn main() {
                                     .arg("-macos_version_min")
                                     .arg("11.0.0")
                                     .arg("-o")
-                                    .arg(format!("{}out", out_dir))
+                                    .arg(&final_file)
                                     .arg(&out_o_file)
                                     .arg("-e")
                                     .arg("_start")
@@ -101,7 +105,7 @@ fn main() {
                                     .arg("-macos_version_min")
                                     .arg("11.0.0")
                                     .arg("-o")
-                                    .arg(format!("{}out", out_dir))
+                                    .arg(&final_file)
                                     .arg(&out_o_file)
                                     .arg("-e")
                                     .arg("_start")
@@ -150,7 +154,7 @@ fn main() {
                         ld_command
                             .current_dir(&current_dir)
                             .arg("-o")
-                            .arg(format!("{}out", out_dir))
+                            .arg(&final_file)
                             .arg(&out_o_file)
                             .arg("-e")
                             .arg("_start")
