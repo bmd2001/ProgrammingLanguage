@@ -84,10 +84,10 @@ jobs:
         shell: bash
         run: |
           choco install nasm -y
+          choco list --local-only
           echo "C:/ProgramData/chocolatey/lib/nasm/tools/install/nasm" >> $GITHUB_PATH
           where nasm || echo "NASM not found!"
           nasm -v
-          choco list --local-only
           echo $env:PATH
 
       - name: Install dependencies (Linux aarch64)
