@@ -273,22 +273,35 @@ impl Generator {
     }
     
     fn push(&mut self, reg: &str) {
-        if cfg!(target_arch = "x86_64") {
+        if cfg!(target_arch = "aarch64") {
+            self.m_output.push_str("\tsub sp, sp, #16\n");
+            self.m_output.push_str(&format!("\tstr {}, [sp, #8]\n", reg));
+            if cfg!(target_os = "macos") {
+                self.m_stack_size += 2;
+            } else if cfg!(target_os = "linux") {
+                self.m_stack_size += 1;
+            }
+        } else {
             self.m_output.push_str(&format!("\tpush {}\n", reg));
-        } else if cfg!(target_arch = "aarch64") {
-            self.m_output.push_str(&format!("\tsub sp, sp, #8\n\tstr {}, [sp]\n", reg));
+            self.m_stack_size += 1;
         }
-        self.m_stack_size += 1;
     }
     
     fn pop(&mut self, reg: String) {
-        if cfg!(target_arch = "x86_64") {
+        if cfg!(target_arch = "aarch64") {
+            self.m_output.push_str(&format!("\tldr {}, [sp, #8]\n", reg));
+            self.m_output.push_str("\tadd sp, sp, #16\n");
+            if cfg!(target_os = "macos") {
+                self.m_stack_size -= 2;
+            } else if cfg!(target_os = "linux") {
+                self.m_stack_size -= 1;
+            }
+        } else {
             self.m_output.push_str(&format!("\tpop {}\n", reg));
-        } else if cfg!(target_arch = "aarch64") {
-            self.m_output.push_str(&format!("\tldr {}, [sp]\n\tadd sp, sp, #8\n", reg));
+            self.m_stack_size -= 1;
         }
-        self.m_stack_size -= 1;
-    }    
+    }
+    
     
     fn generate_exponential_labels(&mut self) -> (String, String){
         let result = (format!("exponential{}", self.m_num_exponentials), format!("exp_done{}", self.m_num_exponentials));
@@ -438,10 +451,20 @@ mod test_generator{
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
         
         gen.push(get_correct_reg());
-        assert_eq!(gen.m_stack_size, 1);
+        if cfg!(target_arch = "x86_64") {
+            assert_eq!(gen.m_stack_size, 1);
+        } else if cfg!(target_arch = "aarch64") {
+            if cfg!(target_os = "macos") {
+                assert_eq!(gen.m_stack_size, 2);
+            } else if cfg!(target_os = "linux") {
+                assert_eq!(gen.m_stack_size, 1);
+            }
+        }
         gen.pop(get_correct_reg().to_string());
         assert_eq!(gen.m_stack_size, 0);
     }
+    
+
 
     #[test]
     fn test_generate_exit() {
@@ -484,7 +507,8 @@ mod test_generator{
         let push_instr = if cfg!(target_arch = "x86_64") {
             format!("\tpush {}\n", push_reg)
         } else {
-            format!("\tsub sp, sp, #8\n\tstr {}, [sp]\n", push_reg)
+            // On ARM64, the updated push routine subtracts 16 and then stores the value at offset 8.
+            format!("\tsub sp, sp, #16\n\tstr {}, [sp, #8]\n", push_reg)
         };
         let should_contain = vec![
             "VarAssignment",
@@ -493,6 +517,7 @@ mod test_generator{
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
+
     
     #[test]
     fn test_generate_scope(){
@@ -566,39 +591,74 @@ mod test_generator{
     fn test_push(){
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
         let reg = get_correct_reg();
+        
+        // First push
         gen.push(reg);
-        assert_eq!(gen.m_stack_size, 1);
+        if cfg!(target_arch = "x86_64") {
+            assert_eq!(gen.m_stack_size, 1);
+        } else if cfg!(target_arch = "aarch64") {
+            if cfg!(target_os = "macos") {
+                assert_eq!(gen.m_stack_size, 2);
+            } else if cfg!(target_os = "linux") {
+                assert_eq!(gen.m_stack_size, 1);
+            }
+        }
+        
+        // Second push
         gen.push(reg);
-        assert_eq!(gen.m_stack_size, 2);
-        let x86 = format!("\tpush {reg}\n");
-        let arch = format!("\tsub sp, sp, #8\n\tstr {reg}, [sp]\n");
+        if cfg!(target_arch = "x86_64") {
+            assert_eq!(gen.m_stack_size, 2);
+        } else if cfg!(target_arch = "aarch64") {
+            if cfg!(target_os = "macos") {
+                assert_eq!(gen.m_stack_size, 4);
+            } else if cfg!(target_os = "linux") {
+                assert_eq!(gen.m_stack_size, 2);
+            }
+        }
+        
+        let x86_expected = format!("\tpush {reg}\n");
+        let arm_expected = format!("\tsub sp, sp, #16\n\tstr {reg}, [sp, #8]\n");
         let should_contain = if cfg!(target_arch = "x86_64") { 
-            vec![x86.as_str()]
-        } else { vec![arch.as_str()] };
+            vec![x86_expected.as_str()]
+        } else { 
+            vec![arm_expected.as_str()]
+        };
+        
         assert_str_in_out_assembly(&gen, should_contain);
-    }
+    }    
 
     #[test]
     fn test_pop(){
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
         let reg = get_correct_reg();
         gen.push(reg);
-        assert_eq!(gen.m_stack_size, 1);
+        if cfg!(target_arch = "x86_64") {
+            assert_eq!(gen.m_stack_size, 1);
+        } else if cfg!(target_arch = "aarch64") {
+            if cfg!(target_os = "macos") {
+                assert_eq!(gen.m_stack_size, 2);
+            } else if cfg!(target_os = "linux") {
+                assert_eq!(gen.m_stack_size, 1);
+            }
+        }
         gen.pop(reg.to_string());
         assert_eq!(gen.m_stack_size, 0);
-        let x86 = format!("\tpop {reg}\n");
-        let arch = format!("\tldr {reg}, [sp]\n\tadd sp, sp, #8\n");
+    
+        let x86_expected = format!("\tpop {reg}\n");
+        let arm_expected = format!("\tldr {reg}, [sp, #8]\n\tadd sp, sp, #16\n");
         let should_contain = if cfg!(target_arch = "x86_64") {
-            vec![x86.as_str()]
-        } else { vec![arch.as_str()] };
+            vec![x86_expected.as_str()]
+        } else {
+            vec![arm_expected.as_str()]
+        };
         assert_str_in_out_assembly(&gen, should_contain);
-        
-        // To prevent rust to print the panic message in the terminal, we replace the panic before calling decrease_scope_depth
+    
+        // Test that popping when the stack is empty causes a panic.
         let prev_hook = panic::take_hook();
         panic::set_hook(Box::new(|_| {}));
-        let failure = panic::catch_unwind(AssertUnwindSafe(|| gen.pop(reg.to_string())));
+        let failure = panic::catch_unwind(std::panic::AssertUnwindSafe(|| gen.pop(reg.to_string())));
         panic::set_hook(prev_hook);
-        assert!(failure.is_err())
+        assert!(failure.is_err());
     }
 
     #[test]
