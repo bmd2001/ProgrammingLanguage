@@ -28,6 +28,10 @@ impl Generator {
             format!("\t; {}\n", comment)
         } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
             format!("\t; {}\n", comment)
+        } else if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+            format!("\t; {}\n", comment)
+        } else if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
+            format!("\t; {}\n", comment)
         } else {
             String::new()
         }

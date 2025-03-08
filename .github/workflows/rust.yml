@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
             arch: x86_64
@@ -26,13 +26,30 @@ jobs:
           - os: macos-latest
             arch: aarch64
             rust_target: aarch64-apple-darwin
+          - os: windows-latest
+            arch: x86_64
+            rust_target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            arch: x86_64
+            rust_target: x86_64-pc-windows-gnu
 
     steps:
       - name: Work around spurious network errors in curl 8.0
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           if rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then
             echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV
           fi
+
+      - name: Work around spurious network errors in curl 8.0 (PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $output = rustc +stable --version --verbose
+          if ($output -match '^release: 1\.7[01]\.') {
+            "CARGO_HTTP_MULTIPLEXING=false" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -47,6 +64,13 @@ jobs:
         run: |
           sudo apt update && sudo apt install -y build-essential gcc
 
+      - name: Install MinGW for Windows GNU target
+        if: runner.os == 'Windows' && matrix.rust_target == 'x86_64-pc-windows-gnu'
+        shell: bash
+        run: |
+          choco install mingw -y
+          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" >> $GITHUB_PATH
+
       - name: Install NASM (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: sudo apt-get update && sudo apt-get install -y nasm
@@ -54,6 +78,13 @@ jobs:
       - name: Install NASM (macOS)
         if: matrix.os == 'macos-13'
         run: brew install nasm
+
+      - name: Install NASM (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          choco install nasm -y
+          echo "C:/ProgramData/chocolatey/lib/nasm/tools/install/nasm" >> $GITHUB_PATH
 
       - name: Install dependencies (Linux aarch64)
         if: matrix.os == 'ubuntu-latest'
@@ -68,21 +99,43 @@ jobs:
       - name: Install Rust target
         run: rustup target add ${{ matrix.rust_target }}
 
+      - name: Convert BRS file encoding (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          content=$(cat .github/workflows/run.brs)
+          echo -n "$content" > .github/workflows/run.brs
+
       - name: Run
+        shell: bash
         run: |
           RUST_BACKTRACE=1 cargo build --target ${{ matrix.rust_target }} --color=always --verbose --profile dev
           RUST_BACKTRACE=1 cargo run .github/workflows/run.brs --target ${{ matrix.rust_target }} --verbose -- --outdir target/debug/
+
       - name: Test
+        shell: bash
         run: |
           RUST_BACKTRACE=1 cargo build --target ${{ matrix.rust_target }} --color=always --verbose --tests --profile test
           RUST_BACKTRACE=1 cargo test --target ${{ matrix.rust_target }} --verbose --bin BRS -- --test-threads=1
-          
-      - name: Run Tests with Coverage for ${{ matrix.rust_target }}
+
+      - name: Run Tests with Coverage (Windows) for ${{ matrix.rust_target }}
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          RUSTUP_TOOLCHAIN: nightly
+          RUSTFLAGS: "-Zbuild-std=std,profiler_builtins -Zinstrument-coverage"
+        run: |
+          mkdir -p coverage
+          cargo install cargo-llvm-cov
+          cargo llvm-cov --target ${{ matrix.rust_target }} --bin BRS --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info -- --test-threads=1
+        
+      - name: Run Tests with Coverag (Non-Windows) for ${{ matrix.rust_target }}
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           mkdir -p coverage
           cargo install cargo-llvm-cov
           cargo llvm-cov --target ${{ matrix.rust_target }} --bin=BRS --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info -- --test-threads=1
-
 
       - name: Upload Coverage Report for ${{ matrix.rust_target }}
         uses: actions/upload-artifact@v4
@@ -121,6 +174,9 @@ jobs:
                -a coverage/coverage-aarch64-unknown-linux-gnu.info \
                -a coverage/coverage-x86_64-apple-darwin.info \
                -a coverage/coverage-x86_64-unknown-linux-gnu.info \
+               -a coverage/coverage-x86_64-pc-windows-msvc.info \
+               -a coverage/coverage-aarch64-pc-windows-msvc.info \
+               -a coverage/coverage-x86_64-pc-windows-gnu.info \
                -o coverage/lcov_${{ github.event.pull_request.number }}.info
 
       - name: Fix Coverage Paths
