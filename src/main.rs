@@ -64,6 +64,23 @@ fn main() {
                                     .arg("macho64")
                                     .arg(&out_asm_file)
                             );
+
+                            let ld_output = run_command(
+                                Command::new("ld")
+                                    .current_dir(&current_dir)
+                                    .arg("-arch")
+                                    .arg(if arch == "x86_64" { "x86_64" } else { "arm64" })
+                                    .arg("-macos_version_min")
+                                    .arg("11.0.0")
+                                    .arg("-o")
+                                    .arg(format!("{}out", out_dir))
+                                    .arg(&out_o_file)
+                                    .arg("-e")
+                                    .arg("_start")
+                                    .arg("-static")
+                            );
+
+                            println!("{}", ld_output);
                         },
                         "aarch64" => {
                             run_command(
@@ -75,25 +92,28 @@ fn main() {
                                     .arg(&out_o_file)
                                     .arg(&out_asm_file)
                             );
+
+                            let ld_output = run_command(
+                                Command::new("ld")
+                                    .current_dir(&current_dir)
+                                    .arg("-arch")
+                                    .arg(if arch == "x86_64" { "x86_64" } else { "arm64" })
+                                    .arg("-macos_version_min")
+                                    .arg("11.0.0")
+                                    .arg("-o")
+                                    .arg(format!("{}out", out_dir))
+                                    .arg(&out_o_file)
+                                    .arg("-e")
+                                    .arg("_start")
+                                    .arg("-lSystem")
+                                    .arg("-syslibroot")
+                                    .arg(&get_macos_sdk_path())
+                            );
+
+                            println!("{}", ld_output);
                         },
                         _ => eprintln!("Unsupported architecture"),
                     }
-
-                    let ld_output = run_command(
-                        Command::new("ld")
-                            .current_dir(&current_dir)
-                            .arg("-arch")
-                            .arg(if arch == "x86_64" { "x86_64" } else { "arm64" })
-                            .arg("-macos_version_min")
-                            .arg("11.0.0")
-                            .arg("-o")
-                            .arg(format!("{}out", out_dir))
-                            .arg(&out_o_file)
-                            .arg("-e")
-                            .arg("_start")
-                            .arg("-static")
-                    );
-                    println!("{}", ld_output);
                 },
                 "linux" => {
                     match arch.as_str() {
@@ -156,4 +176,17 @@ fn run_command(cmd: &mut Command) -> String {
         std::process::exit(1);
     }
     String::from_utf8_lossy(&output.stdout).to_string()
+}
+
+fn get_macos_sdk_path() -> String {
+    let mut cmd = Command::new("xcrun");
+    cmd.arg("--sdk")
+       .arg("macosx")
+       .arg("--show-sdk-path");
+    let sdk_path = run_command(&mut cmd).trim().to_string();
+    if sdk_path.is_empty() {
+        eprintln!("xcrun returned an empty SDK path.");
+        std::process::exit(1);
+    }
+    sdk_path
 }
