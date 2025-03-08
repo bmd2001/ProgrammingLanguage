@@ -10,6 +10,7 @@ pub use nodes::{
     NodeStmt,
     NodeVariableAssignment,
     NodeExit,
+    NodePrint,
     NodeArithmeticExpr,
     NodeBaseExpr,
     NodeArithmeticOperation,

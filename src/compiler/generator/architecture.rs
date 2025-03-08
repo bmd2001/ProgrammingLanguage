@@ -1,10 +1,13 @@
+use crate::compiler::generator::os::{OS, TARGET_OS};
+use crate::compiler::generator::subroutines::Subroutines;
+
 #[cfg(target_arch = "x86_64")]
 pub const TARGET_ARCH: Arch = Arch::X86_64;
 
 #[cfg(target_arch = "aarch64")]
 pub const TARGET_ARCH: Arch = Arch::AArch64;
 
-#[allow(dead_code)] // Only one arch will be used, so it's an expected behaviour
+#[allow(dead_code)] // Only one Arch will be used, so it's an expected behaviour
 #[derive(Debug)]
 pub enum Arch {
     X86_64,
@@ -52,10 +55,9 @@ impl Arch {
         match self {
             Arch::X86_64 => "mov rax, 1\n{exp_label}:\n\tcmp rcx, 0\n\tje {done_label}\n\timul rax, rdx\n\tdec rcx\n\tjmp {exp_label}\n{done_label}:",
             Arch::AArch64 => {
-                if cfg!(target_os = "linux") {
-                    "mov x0, #1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
-                } else {
-                    "mov x0, 1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
+                match TARGET_OS {
+                    OS::Linux => "mov x0, #1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:",
+                    _ => "mov x0, 1\nexp_label:\n\tcmp x1, #0\n\tbeq done_label\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb exp_label\ndone_label:"
                 }
             }
         }
@@ -65,10 +67,9 @@ impl Arch {
         match self {
             Arch::X86_64 => format!("mov rax, {}", value),
             Arch::AArch64 => {
-                if cfg!(target_os = "linux") {
-                    format!("mov x0, #{}", value)
-                } else {
-                    format!("mov x0, {}", value)
+                match TARGET_OS {
+                    OS::Linux => format!("mov x0, #{}", value),
+                    _ => format!("mov x0, {}", value)
                 }
             }
         }
@@ -123,9 +124,19 @@ impl Arch {
 
     // System operations
     pub fn get_program_header(&self) -> &str {
-        match self {
-            Arch::X86_64 => "global _start\n_start:\n",
-            Arch::AArch64 => ".global _start\n_start:\n",
+        match self{
+            Arch::X86_64 => {concat!(
+            "section .bss\n",
+            "buffer resb 20\n",
+            "section .text\n",
+            "\tglobal _start\n",
+            "_start:\n",)}
+            
+            _ => {concat!(
+            ".global _start\n",
+            ".lcomm buffer, 20\n\n",
+            ".text\n",
+            "_start:\n",)}
         }
     }
 
@@ -144,20 +155,49 @@ impl Arch {
     }
 
     pub fn get_exit_instr(&self) -> &str {
-        #[cfg(target_os = "linux")]
-        {
-            match self {
-                Arch::X86_64 => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
-                Arch::AArch64 => "mov x8, #93\n\tmov x0, #0\n\tsvc #0",
+        match TARGET_OS{
+            OS::Linux => {
+                match self {
+                    Arch::X86_64 => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
+                    Arch::AArch64 => "mov x8, #93\n\tmov x0, #0\n\tsvc #0",
+                }
+            }
+            _ => {
+                match self {
+                    Arch::X86_64 => "mov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall",
+                    Arch::AArch64 => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80",
+                }
             }
         }
-        #[cfg(target_os = "macos")]
-        {
-            match self {
-                Arch::X86_64 => "mov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall",
-                Arch::AArch64 => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80",
+    }
+
+    pub fn get_print_instr(&self) -> &str {
+        match self {
+            Arch::X86_64 => {
+                concat!(
+                "\tlea rdi, [rel buffer+19]\n",
+                "\tcall int_to_string\n",
+                "\tmov rsi, rdi\n",
+                "\tinc rsi\n",
+                "\tinc rsi\n",
+                "\tcall print_string\n",
+                )
+            },
+            Arch::AArch64 => {
+                concat!(
+                "\tldr x0, =buffer\n",
+                "\tadd x0, x0, 19\n",
+                "\tbl int_to_string\n",
+                "\tmov x1, x0\n",
+                "\tadd x1, x1, 2\n",
+                "\tbl print_string\n",
+                )
             }
         }
+    }
+
+    pub fn get_subroutines(&self) -> String {
+        Subroutines::new().generate()
     }
 }
 
@@ -360,8 +400,17 @@ mod test_architecture{
     fn test_prog_header(){
         let arch = get_arch();
         match arch {
-            Arch::X86_64 => assert_eq!(arch.get_program_header(),"global _start\n_start:\n"),
-            Arch::AArch64 => assert_eq!(arch.get_program_header(), ".global _start\n_start:\n")
+            Arch::X86_64 => assert_eq!(arch.get_program_header(),concat!(
+            "section .bss\n",
+            "buffer resb 20\n",
+            "section .text\n",
+            "\tglobal _start\n",
+            "_start:\n",)),
+            Arch::AArch64 => assert_eq!(arch.get_program_header(), concat!(
+            ".global _start\n",
+            ".lcomm buffer, 20\n\n",
+            ".text\n",
+            "_start:\n",))
         }
     }
     

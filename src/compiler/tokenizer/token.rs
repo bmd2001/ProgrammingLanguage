@@ -8,6 +8,7 @@ pub enum Token {
     Number { value: String, span: Span },
     Boolean { value: bool, span: Span },
     Exit {span: Span},
+    Print {span: Span}, 
     OpenBracket {span: Span},
     ClosedBracket {span: Span},
     OpenCurlyBracket {span: Span},
@@ -26,6 +27,7 @@ impl Token {
             | Token::Number { span, .. }
             | Token::Boolean { span, .. }
             | Token::Exit { span }
+            | Token::Print { span}
             | Token::OpenBracket { span }
             | Token::ClosedBracket { span }
             | Token::OpenCurlyBracket { span }
@@ -47,6 +49,7 @@ impl fmt::Display for Token {
             Token::Number { value, span } => write!(f, "Number({}, {:?})", value, span),
             Token::Boolean {value, span} => write!(f, "Boolean({}, {:?})", value, span),
             Token::Exit { .. } => write!(f, "exit()"),
+            Token::Print { .. } => write!(f, "print()"),
             Token::OpenBracket { .. } => write!(f, "("),
             Token::ClosedBracket { .. } => write!(f, ")"),
             Token::OpenCurlyBracket { .. } => write!(f, "{{"),
@@ -73,6 +76,7 @@ mod test_token{
             Token::Number { value: "42".to_string(), span },
             Token::Boolean { value: true, span },
             Token::Exit { span },
+            Token::Print { span },
             Token::OpenBracket { span },
             Token::ClosedBracket { span },
             Token::OpenCurlyBracket { span },
@@ -91,6 +95,7 @@ mod test_token{
             "Number(42, Span { m_line: 0, m_start: 0, m_end: 0 })",
             "Boolean(true, Span { m_line: 0, m_start: 0, m_end: 0 })",
             "exit()",
+            "print()",
             "(",
             ")",
             "{",
