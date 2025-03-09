@@ -1,6 +1,6 @@
 use either::Either;
 use either::Either::{Left, Right};
-use crate::compiler::generator::architecture::TARGET_ARCH;
+use super::instruction_factory::INSTRUCTION_FACTORY;
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::generator::arithmetic_instructions::{ArithmeticInstructions};
@@ -39,16 +39,16 @@ impl Generator {
     
     pub fn generate(&mut self){
         self.m_output.clear();
-        self.m_output.push_str(TARGET_ARCH.get_program_header());
+        self.m_output.push_str(INSTRUCTION_FACTORY.get_program_header());
         let stmts = self.m_prog.get_stmts();
         for stmt in stmts {
             self.generate_stmt(&stmt);
         }
-        if !self.m_output.contains(TARGET_ARCH.get_exit_marker()){
+        if !self.m_output.contains(INSTRUCTION_FACTORY.get_exit_marker()){
             // TODO This boilerplate is also for a script that doesn't exit
             self.m_output.push_str(&Self::generate_comment("Boiler plate for empty script"));
             self.m_output.push_str("\t");
-            self.m_output.push_str(TARGET_ARCH.get_exit_instr());
+            self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
             self.m_output.push_str("\n");
         }
     }
@@ -65,9 +65,9 @@ impl Generator {
         self.m_output.push_str(&Self::generate_comment("Exit call"));
         self.m_output.push_str(&Self::generate_comment(&format!("Exit Code = {}", exit.expr)));
         self.generate_arithmetic_expr(&exit.expr);
-        self.pop(TARGET_ARCH.get_exit_reg().to_string());
+        self.pop(INSTRUCTION_FACTORY.get_exit_reg().to_string());
         self.m_output.push_str("\n\t");
-        self.m_output.push_str(TARGET_ARCH.get_exit_instr());
+        self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
         self.m_output.push_str("\n");
         self.m_output.push_str(&Self::generate_comment("Exit end call"));
     }
@@ -101,7 +101,7 @@ impl Generator {
         match p_expr {
             NodeBaseExpr::Num(token) => {
                 if let Token::Number { value, .. } = token {
-                    self.m_output.push_str(&format!("\t{}\n", TARGET_ARCH.get_mov_number_instr(value)));
+                    self.m_output.push_str(&format!("\t{}\n", INSTRUCTION_FACTORY.get_mov_number_instr(value)));
                     if cfg!(target_arch = "x86_64") {
                         self.push("rax");
                     } else if cfg!(target_arch = "aarch64") {
@@ -114,7 +114,7 @@ impl Generator {
             NodeBaseExpr::ID(token) => {
                 if let Token::ID { name, .. } = token {
                     let offset = self.m_stack.get_offset(name.clone());
-                    self.m_output.push_str(&Self::generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", TARGET_ARCH.get_load_variable_instr(offset))));
+                    self.m_output.push_str(&Self::generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", INSTRUCTION_FACTORY.get_load_variable_instr(offset))));
 
                     if cfg!(target_arch = "x86_64") {
                         self.push("rax");
@@ -127,7 +127,7 @@ impl Generator {
             }
             NodeBaseExpr::Bool(token) => {
                 if let Token::Boolean { value, .. } = token {
-                    self.m_output.push_str(&format!("\t{}\n", TARGET_ARCH.get_mov_boolean_instr(*value)));
+                    self.m_output.push_str(&format!("\t{}\n", INSTRUCTION_FACTORY.get_mov_boolean_instr(*value)));
                     if cfg!(target_arch = "x86_64") {
                         self.push("rax");
                     } else if cfg!(target_arch = "aarch64") {
@@ -340,7 +340,6 @@ impl Generator {
 mod test_generator{
     use std::iter::{zip, Zip};
     use std::panic;
-    use std::panic::AssertUnwindSafe;
     use std::vec::IntoIter;
     use crate::compiler::parser::ResultType;
     use crate::compiler::span::Span;
@@ -416,20 +415,20 @@ mod test_generator{
         ];
         let mut gen = Generator::new(NodeProgram{ stmts: vec![] });
         let exp_labels = gen.generate_exponential_labels();
-        let exp_instr = TARGET_ARCH.get_exponentiation_instr();
+        let exp_instr = INSTRUCTION_FACTORY.get_exponentiation_instr();
         let exp_instr = exp_instr.replace("{exp_label}", &*exp_labels.0);
         let exp_instr = exp_instr.replace("{done_label}", &*exp_labels.1);
         let instrs = vec![
-            TARGET_ARCH.get_addition_instr().to_string(),
-            TARGET_ARCH.get_subtraction_instr().to_string(),
-            TARGET_ARCH.get_multiplication_instr().to_string(),
-            TARGET_ARCH.get_division_instr().to_string(),
-            TARGET_ARCH.get_modulo_instr().to_string(),
+            INSTRUCTION_FACTORY.get_addition_instr().to_string(),
+            INSTRUCTION_FACTORY.get_subtraction_instr().to_string(),
+            INSTRUCTION_FACTORY.get_multiplication_instr().to_string(),
+            INSTRUCTION_FACTORY.get_division_instr().to_string(),
+            INSTRUCTION_FACTORY.get_modulo_instr().to_string(),
             exp_instr,
-            TARGET_ARCH.get_and_instr().to_string(),
-            TARGET_ARCH.get_or_instr().to_string(),
-            TARGET_ARCH.get_xor_instr().to_string(),
-            TARGET_ARCH.get_not_instr().to_string(),
+            INSTRUCTION_FACTORY.get_and_instr().to_string(),
+            INSTRUCTION_FACTORY.get_or_instr().to_string(),
+            INSTRUCTION_FACTORY.get_xor_instr().to_string(),
+            INSTRUCTION_FACTORY.get_not_instr().to_string(),
         ];
         zip(ops, instrs)
     }
@@ -477,7 +476,7 @@ mod test_generator{
         let should_contain = vec![
             "Exit call",
             "Exit Code = 42",
-            TARGET_ARCH.get_exit_instr()
+            INSTRUCTION_FACTORY.get_exit_instr()
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
@@ -488,7 +487,7 @@ mod test_generator{
         gen.generate();
         let should_contain = vec![
             "Boiler plate for empty script",
-            TARGET_ARCH.get_exit_instr()
+            INSTRUCTION_FACTORY.get_exit_instr()
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
@@ -503,7 +502,7 @@ mod test_generator{
 
         gen.generate();
         let push_reg = get_correct_reg();
-        let mov_instr = TARGET_ARCH.get_mov_number_instr("42");
+        let mov_instr = INSTRUCTION_FACTORY.get_mov_number_instr("42");
         let push_instr = if cfg!(target_arch = "x86_64") {
             format!("\tpush {}\n", push_reg)
         } else {
@@ -535,7 +534,7 @@ mod test_generator{
             "VarAssignment",
             "Exit call",
             "Exit Code = 42",
-            TARGET_ARCH.get_exit_instr()
+            INSTRUCTION_FACTORY.get_exit_instr()
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
