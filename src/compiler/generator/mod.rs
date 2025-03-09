@@ -1,6 +1,10 @@
 mod generator;
 mod arithmetic_instructions;
-mod architecture;
+mod instruction_factory;
 mod stack_handler;
 
 pub use generator::Generator;
+
+use arithmetic_instructions::ArithmeticInstructions;
+use stack_handler::StackHandler;
+use instruction_factory::INSTRUCTION_FACTORY;

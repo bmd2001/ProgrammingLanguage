@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use crate::compiler::generator::architecture::{Arch, TARGET_ARCH};
+use crate::utility::TARGET_ARCH;
+use super::instruction_factory::INSTRUCTION_FACTORY;
 
 pub struct ArithmeticInstructions {
     instrs: HashMap<String, ((String, String), String, Vec<String>)>
@@ -19,42 +20,31 @@ impl ArithmeticInstructions {
                 )
         }
 
-        let (arith_reg_lhs, arith_reg_rhs, arith_result_reg) = match TARGET_ARCH {
-            Arch::X86_64 => ("rax", "rbx", "rax"),
-            Arch::AArch64 => ("x0", "x1", "x0"),
-        };
-
-        let (exp_reg_lhs, exp_reg_rhs, exp_result_reg) = match TARGET_ARCH {
-            Arch::X86_64 => ("rcx", "rdx", "rax"),
-            Arch::AArch64 => ("x1", "x2", "x0"),
-        };
-
-        let modulo_result_reg = match TARGET_ARCH {
-            Arch::X86_64 => "rdx",
-            Arch::AArch64 => "x0",
-        };
+        let (arith_reg_lhs, arith_reg_rhs, arith_result_reg) = TARGET_ARCH.get_arithmetic_regs();
+        let (exp_reg_lhs, exp_reg_rhs, exp_result_reg) = TARGET_ARCH.get_exponentiation_regs();
+        let modulo_result_reg = TARGET_ARCH.get_modulo_reg();
 
         let map = HashMap::from([
             ("Addition".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_addition_instr()])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![INSTRUCTION_FACTORY.get_addition_instr()])),
             ("Subtraction".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_subtraction_instr()])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![INSTRUCTION_FACTORY.get_subtraction_instr()])),
             ("Multiplication".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_multiplication_instr()])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![INSTRUCTION_FACTORY.get_multiplication_instr()])),
             ("Division".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_division_instr()])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![INSTRUCTION_FACTORY.get_division_instr()])),
             ("Exponentiation".to_string(),
-            operation(exp_reg_lhs, exp_reg_rhs, exp_result_reg, vec![TARGET_ARCH.get_exponentiation_instr()])),
+            operation(exp_reg_lhs, exp_reg_rhs, exp_result_reg, vec![INSTRUCTION_FACTORY.get_exponentiation_instr()])),
             ("Modulo".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, modulo_result_reg, vec![TARGET_ARCH.get_modulo_instr()])),
+            operation(arith_reg_lhs, arith_reg_rhs, modulo_result_reg, vec![INSTRUCTION_FACTORY.get_modulo_instr()])),
             ("And".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_and_instr()])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![INSTRUCTION_FACTORY.get_and_instr()])),
             ("Or".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_or_instr()])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![INSTRUCTION_FACTORY.get_or_instr()])),
             ("Xor".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_xor_instr()])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![INSTRUCTION_FACTORY.get_xor_instr()])),
             ("Not".to_string(),
-            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![TARGET_ARCH.get_not_instr()])),
+            operation(arith_reg_lhs, arith_reg_rhs, arith_result_reg, vec![INSTRUCTION_FACTORY.get_not_instr()])),
             ]
         );
         ArithmeticInstructions{instrs: map}
@@ -71,6 +61,7 @@ impl ArithmeticInstructions {
 #[cfg(test)]
 mod test_arithmetic_instructions {
     use super::*;
+    use crate::utility::Arch;
 
     #[test]
     fn test_init() {
@@ -92,16 +83,16 @@ mod test_arithmetic_instructions {
         let obj = ArithmeticInstructions::new();
 
         let operations = vec![
-            ("Addition", TARGET_ARCH.get_addition_instr()),
-            ("Subtraction", TARGET_ARCH.get_subtraction_instr()),
-            ("Multiplication", TARGET_ARCH.get_multiplication_instr()),
-            ("Division", TARGET_ARCH.get_division_instr()),
-            ("Exponentiation", TARGET_ARCH.get_exponentiation_instr()),
-            ("Modulo", TARGET_ARCH.get_modulo_instr()),
-            ("And", TARGET_ARCH.get_and_instr()),
-            ("Or", TARGET_ARCH.get_or_instr()),
-            ("Xor", TARGET_ARCH.get_xor_instr()),
-            ("Not", TARGET_ARCH.get_not_instr()),
+            ("Addition", INSTRUCTION_FACTORY.get_addition_instr()),
+            ("Subtraction", INSTRUCTION_FACTORY.get_subtraction_instr()),
+            ("Multiplication", INSTRUCTION_FACTORY.get_multiplication_instr()),
+            ("Division", INSTRUCTION_FACTORY.get_division_instr()),
+            ("Exponentiation", INSTRUCTION_FACTORY.get_exponentiation_instr()),
+            ("Modulo", INSTRUCTION_FACTORY.get_modulo_instr()),
+            ("And", INSTRUCTION_FACTORY.get_and_instr()),
+            ("Or", INSTRUCTION_FACTORY.get_or_instr()),
+            ("Xor", INSTRUCTION_FACTORY.get_xor_instr()),
+            ("Not", INSTRUCTION_FACTORY.get_not_instr()),
         ];
 
         for (key, expected_instr) in operations {

@@ -1,4 +1,5 @@
 mod compiler;
+mod utility;
 
 use std::fs;
 use std::env;
