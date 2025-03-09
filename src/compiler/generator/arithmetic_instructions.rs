@@ -20,20 +20,9 @@ impl ArithmeticInstructions {
                 )
         }
 
-        let (arith_reg_lhs, arith_reg_rhs, arith_result_reg) = match TARGET_ARCH {
-            Arch::X86_64 => ("rax", "rbx", "rax"),
-            Arch::AArch64 => ("x0", "x1", "x0"),
-        };
-
-        let (exp_reg_lhs, exp_reg_rhs, exp_result_reg) = match TARGET_ARCH {
-            Arch::X86_64 => ("rcx", "rdx", "rax"),
-            Arch::AArch64 => ("x1", "x2", "x0"),
-        };
-
-        let modulo_result_reg = match TARGET_ARCH {
-            Arch::X86_64 => "rdx",
-            Arch::AArch64 => "x0",
-        };
+        let (arith_reg_lhs, arith_reg_rhs, arith_result_reg) = TARGET_ARCH.get_arithmetic_regs();
+        let (exp_reg_lhs, exp_reg_rhs, exp_result_reg) = TARGET_ARCH.get_exponentiation_regs();
+        let modulo_result_reg = TARGET_ARCH.get_modulo_reg();
 
         let map = HashMap::from([
             ("Addition".to_string(),
