@@ -379,13 +379,10 @@ mod test_generator{
 
     #[test]
     fn test_generate_comment() {
-        if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64"){
-            let comment = INSTRUCTION_FACTORY.generate_comment("Test Comment");
-            assert_eq!(comment, "\t// Test Comment\n");
-        }
-        else {
-            let comment = INSTRUCTION_FACTORY.generate_comment("Test Comment");
-            assert_eq!(comment, "\t; Test Comment\n");
+        let comment = INSTRUCTION_FACTORY.generate_comment("Test Comment");
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::Linux) => assert_eq!(comment, "\t// Test Comment\n"),
+            _ => assert_eq!(comment, "\t; Test Comment\n")
         }
     }
 

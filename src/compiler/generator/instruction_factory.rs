@@ -9,10 +9,9 @@ pub struct InstructionFactory{
 impl InstructionFactory {
     // Comments
     pub fn generate_comment(&self, comment: &str) -> String {
-        if matches!(TARGET_OS, OS::Linux) && matches!(TARGET_ARCH, Arch::AArch64) {
-            format!("\t// {}\n", comment)
-        } else {
-            format!("\t; {}\n", comment)
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::Linux) => format!("\t// {}\n", comment),
+            _ => format!("\t; {}\n", comment)
         }
     }
     
@@ -53,37 +52,26 @@ impl InstructionFactory {
     }
 
     pub fn get_exponentiation_instr(&self) -> &str {
-        match TARGET_ARCH {
-            Arch::X86_64 => "mov rax, 1\n{exp_label}:\n\tcmp rcx, 0\n\tje {done_label}\n\timul rax, rdx\n\tdec rcx\n\tjmp {exp_label}\n{done_label}:",
-            Arch::AArch64 => {
-                match TARGET_OS {
-                    OS::Linux => "mov x0, #1\n{exp_label}:\n\tcmp x1, #0\n\tbeq {done_label}\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb {exp_label}\n{done_label}:",
-                    _ => "mov x0, 1\n{exp_label}:\n\tcmp x1, #0\n\tbeq {done_label}\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb {exp_label}\n{done_label}:"
-                }
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, _) => "mov rax, 1\n{exp_label}:\n\tcmp rcx, 0\n\tje {done_label}\n\timul rax, rdx\n\tdec rcx\n\tjmp {exp_label}\n{done_label}:",
+            (Arch::AArch64, OS::Linux) => "mov x0, #1\n{exp_label}:\n\tcmp x1, #0\n\tbeq {done_label}\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb {exp_label}\n{done_label}:",
+            (Arch::AArch64, _) => "mov x0, 1\n{exp_label}:\n\tcmp x1, #0\n\tbeq {done_label}\n\tmul x0, x0, x2\n\tsub x1, x1, #1\n\tb {exp_label}\n{done_label}:"
         }
     }
 
     pub fn get_mov_number_instr(&self, value: &str) -> String {
-        match TARGET_ARCH {
-            Arch::X86_64 => format!("mov rax, {}", value),
-            Arch::AArch64 => {
-                match TARGET_OS {
-                    OS::Linux => format!("mov x0, #{}", value),
-                    _ => format!("mov x0, {}", value)
-                }
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, _) => format!("mov rax, {}", value),
+            (Arch::AArch64, OS::Linux) => format!("mov x0, #{}", value),
+            (Arch::AArch64, _) => format!("mov x0, {}", value)
         }
     }
 
     pub fn get_mov_boolean_instr(&self, value: bool) -> String {
+        let bool_as_int = if value {1} else {0};
         match TARGET_ARCH {
-            Arch::X86_64 => {
-                if value { "mov rax, 1".to_string() } else { "mov rax, 0".to_string() }
-            },
-            Arch::AArch64 => {
-                if value { "mov x0, 1".to_string() } else { "mov x0, 0".to_string() }
-            },
+            Arch::X86_64 => format!("mov rax, {}", bool_as_int),
+            Arch::AArch64 => format!("mov x0, {}", bool_as_int)
         }
     }
 
@@ -146,19 +134,11 @@ impl InstructionFactory {
     }
 
     pub fn get_exit_instr(&self) -> &str {
-        match TARGET_OS {
-            OS::Linux => {
-                match TARGET_ARCH {
-                    Arch::X86_64 => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
-                    Arch::AArch64 => "mov x8, #93\n\tmov x0, #0\n\tsvc #0",
-                }
-            }
-            _ => {
-                match TARGET_ARCH {
-                    Arch::X86_64 => "mov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall",
-                    Arch::AArch64 => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80",
-                }
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, OS::Linux) => "mov rax, 60\n\tmov rdi, 0\n\tsyscall",
+            (Arch::X86_64, _) => "mov rax, 0x2000001\n\tmov rdi, 0\n\tsyscall",
+            (Arch::AArch64, OS::Linux) => "mov x8, #93\n\tmov x0, #0\n\tsvc #0",
+            (Arch::AArch64, _) => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80"
         }
     }
 
@@ -231,70 +211,58 @@ mod test_architecture{
     #[test]
     fn test_exp(){
         let instr_factory = InstructionFactory{};
-        match TARGET_ARCH {
-            Arch::X86_64 => assert_eq!(instr_factory.get_exponentiation_instr(),
-                                       concat!(
-                                       "mov rax, 1\n",
-                                       "{exp_label}:\n",
-                                       "\tcmp rcx, 0\n",
-                                       "\tje {done_label}\n",
-                                       "\timul rax, rdx\n",
-                                       "\tdec rcx\n",
-                                       "\tjmp {exp_label}\n",
-                                       "{done_label}:"
-                                       )
-            ),
-
-            Arch::AArch64 => {
-                if cfg!(target_os = "linux") {
-                    assert_eq!(instr_factory.get_exponentiation_instr(),
-                               concat!(
-                               "mov x0, #1\n",
-                               "exp_label:\n",
-                               "\tcmp x1, #0\n",
-                               "\tbeq done_label\n",
-                               "\tmul x0, x0, x2\n",
-                               "\tsub x1, x1, #1\n",
-                               "\tb exp_label\n",
-                               "done_label:"
-                               )
-                    )
-                } else {
-                    assert_eq!(instr_factory.get_exponentiation_instr(),
-                               concat!(
-                               "mov x0, 1\n",
-                               "exp_label:\n",
-                               "\tcmp x1, #0\n",
-                               "\tbeq done_label\n",
-                               "\tmul x0, x0, x2\n",
-                               "\tsub x1, x1, #1\n",
-                               "\tb exp_label\n",
-                               "done_label:"
-                               )
-                    )
-                }
-            },
-        }
+        let exp_instr = instr_factory.get_exponentiation_instr();
+        let expected_instr = match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, _) => concat!(
+                                "mov rax, 1\n",
+                                "{exp_label}:\n",
+                                "\tcmp rcx, 0\n",
+                                "\tje {done_label}\n",
+                                "\timul rax, rdx\n",
+                                "\tdec rcx\n",
+                                "\tjmp {exp_label}\n",
+                                "{done_label}:"
+                                ),
+            (Arch::AArch64, OS::Linux) => concat!(
+                                "mov x0, #1\n",
+                                "{exp_label}:\n",
+                                "\tcmp x1, #0\n",
+                                "\tbeq {done_label}\n",
+                                "\tmul x0, x0, x2\n",
+                                "\tsub x1, x1, #1\n",
+                                "\tb {exp_label}\n",
+                                "{done_label}:"
+                                ),
+            (Arch::AArch64, _) => concat!(
+                                "mov x0, 1\n",
+                                "{exp_label}:\n",
+                                "\tcmp x1, #0\n",
+                                "\tbeq {done_label}\n",
+                                "\tmul x0, x0, x2\n",
+                                "\tsub x1, x1, #1\n",
+                                "\tb {exp_label}\n",
+                                "{done_label}:"
+                                )
+        };
+        assert_eq!(exp_instr, expected_instr);
     }
     
     #[test]
     fn test_mov_num(){
         let instr_factory = InstructionFactory{};
-        match TARGET_ARCH {
-            Arch::X86_64 => {
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, _) => {
                 assert_eq!(instr_factory.get_mov_number_instr("0"), "mov rax, 0");
                 assert_eq!(instr_factory.get_mov_number_instr("1"), "mov rax, 1");
-            },
-            Arch::AArch64 => {
-                if cfg!(target_os = "linux") {
-                    assert_eq!(instr_factory.get_mov_number_instr("0"), "mov x0, #0");
-                    assert_eq!(instr_factory.get_mov_number_instr("1"), "mov x0, #1");
-                }
-                else {
-                    assert_eq!(instr_factory.get_mov_number_instr("0"), "mov x0, 0");
-                    assert_eq!(instr_factory.get_mov_number_instr("1"), "mov x0, 1");
-                }
-            },
+            }
+            (Arch::AArch64, OS::Linux) => {
+                assert_eq!(instr_factory.get_mov_number_instr("0"), "mov x0, #0");
+                assert_eq!(instr_factory.get_mov_number_instr("1"), "mov x0, #1");
+            }
+            (Arch::AArch64, _) => {
+                assert_eq!(instr_factory.get_mov_number_instr("0"), "mov x0, 0");
+                assert_eq!(instr_factory.get_mov_number_instr("1"), "mov x0, 1");
+            }
         }
     }
     
@@ -394,35 +362,21 @@ mod test_architecture{
     #[test]
     fn test_exit(){
         let instr_factory = InstructionFactory{};
-        match TARGET_ARCH {
-            Arch::X86_64 => {
-                if cfg!(target_os = "linux"){
-                    assert_eq!(instr_factory.get_exit_instr(), 
-                               concat!("mov rax, 60\n",
-                               "\tmov rdi, 0\n",
-                               "\tsyscall")
-                    )
-                } else {
-                    assert_eq!(instr_factory.get_exit_instr(),
-                               concat!("mov rax, 0x2000001\n",
-                                   "\tmov rdi, 0\n",
-                                   "\tsyscall")
-                    )
-                }
-            },
-            Arch::AArch64 => if cfg!(target_os = "linux"){
-                assert_eq!(instr_factory.get_exit_instr(),
-                           concat!("mov x8, #93\n",
-                               "\tmov x0, #0\n",
-                               "\tsvc #0")
-                )
-            } else {
-                assert_eq!(instr_factory.get_exit_instr(),
-                           concat!("ldr x16, =0x2000001\n",
-                           "\tmov x0, 0\n",
-                           "\tsvc #0x80")
-                )
-            }
-        }
+        let exit_instr = instr_factory.get_exit_instr();
+        let expected_instr = match (TARGET_ARCH, TARGET_OS){
+            (Arch::X86_64, OS::Linux) => concat!("mov rax, 60\n",
+                                                "\tmov rdi, 0\n",
+                                                "\tsyscall"),
+            (Arch::X86_64, _) => concat!("mov rax, 0x2000001\n",
+                                        "\tmov rdi, 0\n",
+                                        "\tsyscall"),
+            (Arch::AArch64, OS::Linux) => concat!("mov x8, #93\n",
+                                        "\tmov x0, #0\n",
+                                        "\tsvc #0"),
+            (Arch::AArch64, _) => concat!("ldr x16, =0x2000001\n",
+                                        "\tmov x0, 0\n",
+                                        "\tsvc #0x80")
+        };
+        assert_eq!(exit_instr, expected_instr);
     }
 }
