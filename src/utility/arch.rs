@@ -12,20 +12,27 @@ pub enum Arch {
 }
 
 impl Arch{
+    pub fn get_base_reg(&self) -> &str{
+        match self {
+            Arch::X86_64 => "rax",
+            Arch::AArch64 => "x0"
+        }
+    }
+    
     pub fn get_arithmetic_regs(&self) -> (&str, &str, &str){
         match self {
             Arch::X86_64 => ("rax", "rbx", "rax"),
             Arch::AArch64 => ("x0", "x1", "x0"),
         }
     }
-    
+
     pub fn get_exponentiation_regs(&self) -> (&str, &str, &str){
         match self{
             Arch::X86_64 => ("rcx", "rdx", "rax"),
             Arch::AArch64 => ("x1", "x2", "x0"),
         }
     }
-    
+
     pub fn get_modulo_reg(&self) -> &str {
         match self {
             Arch::X86_64 => "rdx",

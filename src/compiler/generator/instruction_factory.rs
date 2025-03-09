@@ -16,15 +16,6 @@ impl InstructionFactory {
         }
     }
     
-    // Register Retrieval
-    pub fn get_base_reg(&self) -> &str{
-        match TARGET_ARCH {
-            Arch::X86_64 => "rax",
-            Arch::AArch64 => "x0"
-        }
-    }
-    
-    
     // Arithmetic operations
     pub fn get_addition_instr(&self) -> &str {
         match TARGET_ARCH {

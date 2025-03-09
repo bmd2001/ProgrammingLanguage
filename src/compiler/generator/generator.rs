@@ -87,7 +87,7 @@ impl Generator {
             NodeBaseExpr::Num(token) => {
                 if let Token::Number { value, .. } = token {
                     self.m_output.push_str(&format!("\t{}\n", INSTRUCTION_FACTORY.get_mov_number_instr(value)));
-                    self.push(INSTRUCTION_FACTORY.get_base_reg());
+                    self.push(TARGET_ARCH.get_base_reg());
                 } else {
                     eprintln!("Wrong Tokenization");
                 }
@@ -96,7 +96,7 @@ impl Generator {
                 if let Token::ID { name, .. } = token {
                     let offset = self.m_stack.get_offset(name.clone());
                     self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", INSTRUCTION_FACTORY.get_load_variable_instr(offset))).as_str());
-                    self.push(INSTRUCTION_FACTORY.get_base_reg());
+                    self.push(TARGET_ARCH.get_base_reg());
                 } else {
                     eprintln!("Wrong Tokenization");
                 }
@@ -104,7 +104,7 @@ impl Generator {
             NodeBaseExpr::Bool(token) => {
                 if let Token::Boolean { value, .. } = token {
                     self.m_output.push_str(&format!("\t{}\n", INSTRUCTION_FACTORY.get_mov_boolean_instr(*value)));
-                    self.push(INSTRUCTION_FACTORY.get_base_reg());
+                    self.push(TARGET_ARCH.get_base_reg());
                 } else {
                     eprintln!("Wrong Tokenization");
                 }
@@ -176,7 +176,7 @@ impl Generator {
     ) {
         self.process_operand(operand);
 
-        let acc_reg = INSTRUCTION_FACTORY.get_base_reg();
+        let acc_reg = TARGET_ARCH.get_base_reg();
 
         self.pop(acc_reg);
 
@@ -393,12 +393,12 @@ mod test_generator{
     fn test_push_pop() {
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
         
-        gen.push(INSTRUCTION_FACTORY.get_base_reg());
+        gen.push(TARGET_ARCH.get_base_reg());
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
             _ => {assert_eq!(gen.m_stack_size, 1);}
         }
-        gen.pop(INSTRUCTION_FACTORY.get_base_reg());
+        gen.pop(TARGET_ARCH.get_base_reg());
         assert_eq!(gen.m_stack_size, 0);
     }
     
@@ -440,7 +440,7 @@ mod test_generator{
         let mut gen = Generator::new(NodeProgram { stmts: vec![id_assignment_stmt] });
 
         gen.generate();
-        let push_reg = INSTRUCTION_FACTORY.get_base_reg();
+        let push_reg = TARGET_ARCH.get_base_reg();
         let mov_instr = INSTRUCTION_FACTORY.get_mov_number_instr("42");
         let push_instr = match TARGET_ARCH{
             Arch::X86_64 => {format!("\tpush {}\n", push_reg)}
@@ -529,7 +529,7 @@ mod test_generator{
     #[test]
     fn test_push(){
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
-        let reg = INSTRUCTION_FACTORY.get_base_reg();
+        let reg = TARGET_ARCH.get_base_reg();
         
         // First push
         gen.push(reg);
@@ -558,7 +558,7 @@ mod test_generator{
     #[test]
     fn test_pop(){
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
-        let reg = INSTRUCTION_FACTORY.get_base_reg();
+        let reg = TARGET_ARCH.get_base_reg();
         gen.push(reg);
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
