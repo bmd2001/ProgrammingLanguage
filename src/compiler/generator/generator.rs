@@ -88,11 +88,7 @@ impl Generator {
             NodeBaseExpr::Num(token) => {
                 if let Token::Number { value, .. } = token {
                     self.m_output.push_str(&format!("\t{}\n", INSTRUCTION_FACTORY.get_mov_number_instr(value)));
-                    if cfg!(target_arch = "x86_64") {
-                        self.push("rax");
-                    } else if cfg!(target_arch = "aarch64") {
-                        self.push("x0");
-                    }
+                    self.push(INSTRUCTION_FACTORY.get_base_reg());
                 } else {
                     eprintln!("Wrong Tokenization");
                 }
@@ -101,12 +97,7 @@ impl Generator {
                 if let Token::ID { name, .. } = token {
                     let offset = self.m_stack.get_offset(name.clone());
                     self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", INSTRUCTION_FACTORY.get_load_variable_instr(offset))).as_str());
-
-                    if cfg!(target_arch = "x86_64") {
-                        self.push("rax");
-                    } else if cfg!(target_arch = "aarch64") {
-                        self.push("x0");
-                    }
+                    self.push(INSTRUCTION_FACTORY.get_base_reg());
                 } else {
                     eprintln!("Wrong Tokenization");
                 }
@@ -114,11 +105,7 @@ impl Generator {
             NodeBaseExpr::Bool(token) => {
                 if let Token::Boolean { value, .. } = token {
                     self.m_output.push_str(&format!("\t{}\n", INSTRUCTION_FACTORY.get_mov_boolean_instr(*value)));
-                    if cfg!(target_arch = "x86_64") {
-                        self.push("rax");
-                    } else if cfg!(target_arch = "aarch64") {
-                        self.push("x0");
-                    }
+                    self.push(INSTRUCTION_FACTORY.get_base_reg());
                 } else {
                     eprintln!("Wrong Tokenization");
                 }
@@ -189,12 +176,8 @@ impl Generator {
         instruction_data: &((String, String), String, Vec<String>)
     ) {
         self.process_operand(operand);
-
-        let acc_reg = if cfg!(target_arch = "aarch64") {
-            "x0"
-        } else {
-            "rax" // default fallback
-        };
+        
+        let acc_reg = INSTRUCTION_FACTORY.get_base_reg();
 
         self.pop(acc_reg.to_string());
 
