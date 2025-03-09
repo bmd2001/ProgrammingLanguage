@@ -170,6 +170,20 @@ impl InstructionFactory {
             }
         }
     }
+
+    pub fn get_push_instr(&self, reg: &str) -> String {
+        match TARGET_ARCH {
+            Arch::X86_64 => {format!("\tpush {}\n", reg)}
+            Arch::AArch64 => {format!("\tsub sp, sp, #16\n\tstr {}, [sp, #8]\n", reg)}
+        }
+    }
+    
+    pub fn get_pop_instr(&self, reg: &str) -> String {
+        match TARGET_ARCH {
+            Arch::X86_64 => {format!("\tpop {}\n", reg)}
+            Arch::AArch64 => {format!("\tldr {}, [sp, #8]\n\tadd sp, sp, #16\n", reg)}
+        }
+    }
 }
 
 

@@ -50,7 +50,7 @@ impl Generator {
         self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Exit call").as_str());
         self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("Exit Code = {}", exit.expr)).as_str());
         self.generate_arithmetic_expr(&exit.expr);
-        self.pop(INSTRUCTION_FACTORY.get_exit_reg().to_string());
+        self.pop(INSTRUCTION_FACTORY.get_exit_reg());
         self.m_output.push_str("\n\t");
         self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
         self.m_output.push_str("\n");
@@ -178,7 +178,7 @@ impl Generator {
 
         let acc_reg = INSTRUCTION_FACTORY.get_base_reg();
 
-        self.pop(acc_reg.to_string());
+        self.pop(acc_reg);
 
         let instr_code = instruction_data.2.join("\n\t");
         self.m_output.push_str("\t");
@@ -234,43 +234,25 @@ impl Generator {
     }
 
     fn push_pop(&mut self, pop_regs: (String, String), res_reg: &str, instruction: &str){
-        self.pop(pop_regs.1);
-        self.pop(pop_regs.0);
+        self.pop(&pop_regs.1);
+        self.pop(&pop_regs.0);
         self.m_output.push_str(instruction);
         self.push(res_reg);
     }
     
     fn push(&mut self, reg: &str) {
-        match TARGET_ARCH {
-            Arch::X86_64 => {
-                self.m_output.push_str(&format!("\tpush {}\n", reg));
-                self.m_stack_size += 1;
-            }
-            Arch::AArch64 => {
-                self.m_output.push_str("\tsub sp, sp, #16\n");
-                self.m_output.push_str(&format!("\tstr {}, [sp, #8]\n", reg));
-                match TARGET_OS {
-                    OS::Linux => {self.m_stack_size += 1;}
-                    _ => {self.m_stack_size += 2;}
-                }
-            }
+        self.m_output.push_str(&INSTRUCTION_FACTORY.get_push_instr(reg));
+        self.m_stack_size += match (TARGET_ARCH, TARGET_OS){
+            (Arch::AArch64, OS::MacOS) => 2,
+            _ => 1
         }
     }
     
-    fn pop(&mut self, reg: String) {
-        match TARGET_ARCH {
-            Arch::X86_64 => {
-                self.m_output.push_str(&format!("\tpop {}\n", reg));
-                self.m_stack_size -= 1;
-            }
-            Arch::AArch64 => {
-                self.m_output.push_str(&format!("\tldr {}, [sp, #8]\n", reg));
-                self.m_output.push_str("\tadd sp, sp, #16\n");
-                match TARGET_OS {
-                    OS::Linux => {self.m_stack_size -= 1;}
-                    _ => {self.m_stack_size -= 2;}
-                }
-            }
+    fn pop(&mut self, reg: &str) {
+        self.m_output.push_str(&INSTRUCTION_FACTORY.get_pop_instr(reg));
+        self.m_stack_size -= match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => 2,
+            _ => 1
         }
     }
     
@@ -412,16 +394,11 @@ mod test_generator{
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
         
         gen.push(INSTRUCTION_FACTORY.get_base_reg());
-        match TARGET_ARCH {
-            Arch::X86_64 => {assert_eq!(gen.m_stack_size, 1);}
-            Arch::AArch64 => {
-                match TARGET_OS {
-                    OS::Linux => {assert_eq!(gen.m_stack_size, 1);}
-                    _ => {assert_eq!(gen.m_stack_size, 2);}
-                }
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
+            _ => {assert_eq!(gen.m_stack_size, 1);}
         }
-        gen.pop(INSTRUCTION_FACTORY.get_base_reg().to_string());
+        gen.pop(INSTRUCTION_FACTORY.get_base_reg());
         assert_eq!(gen.m_stack_size, 0);
     }
     
@@ -556,26 +533,16 @@ mod test_generator{
         
         // First push
         gen.push(reg);
-        match TARGET_ARCH {
-            Arch::X86_64 => {assert_eq!(gen.m_stack_size, 1);}
-            Arch::AArch64 => {
-                match TARGET_OS {
-                    OS::Linux => {assert_eq!(gen.m_stack_size, 1);}
-                    _ => {assert_eq!(gen.m_stack_size, 2);}
-                }
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
+            _ => {assert_eq!(gen.m_stack_size, 1);}
         }
         
         // Second push
         gen.push(reg);
-        match TARGET_ARCH {
-            Arch::X86_64 => {assert_eq!(gen.m_stack_size, 2);}
-            Arch::AArch64 => {
-                match TARGET_OS {
-                    OS::Linux => {assert_eq!(gen.m_stack_size, 2);}
-                    _ => {assert_eq!(gen.m_stack_size, 4);}
-                }
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 4);}
+            _ => {assert_eq!(gen.m_stack_size, 2);}
         }
         
         let x86_expected = format!("\tpush {reg}\n");
@@ -593,16 +560,11 @@ mod test_generator{
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
         let reg = INSTRUCTION_FACTORY.get_base_reg();
         gen.push(reg);
-        match TARGET_ARCH {
-            Arch::X86_64 => {assert_eq!(gen.m_stack_size, 1);}
-            Arch::AArch64 => {
-                match TARGET_OS {
-                    OS::Linux => {assert_eq!(gen.m_stack_size, 1);}
-                    _ => {assert_eq!(gen.m_stack_size, 2);}
-                }
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
+            _ => {assert_eq!(gen.m_stack_size, 1);}
         }
-        gen.pop(reg.to_string());
+        gen.pop(reg);
         assert_eq!(gen.m_stack_size, 0);
     
         let x86_expected = format!("\tpop {reg}\n");
@@ -616,7 +578,7 @@ mod test_generator{
         // Test that popping when the stack is empty causes a panic.
         let prev_hook = panic::take_hook();
         panic::set_hook(Box::new(|_| {}));
-        let failure = panic::catch_unwind(std::panic::AssertUnwindSafe(|| gen.pop(reg.to_string())));
+        let failure = panic::catch_unwind(panic::AssertUnwindSafe(|| gen.pop(reg)));
         panic::set_hook(prev_hook);
         assert!(failure.is_err());
     }
