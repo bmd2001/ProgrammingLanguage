@@ -1,10 +1,8 @@
 use either::Either;
 use either::Either::{Left, Right};
-use super::instruction_factory::INSTRUCTION_FACTORY;
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
-use crate::compiler::generator::arithmetic_instructions::{ArithmeticInstructions};
-use crate::compiler::generator::stack_handler::StackHandler;
+use crate::compiler::generator::{ArithmeticInstructions, StackHandler, INSTRUCTION_FACTORY};
 
 pub struct Generator {
     m_prog: NodeProgram,
