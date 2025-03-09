@@ -18,20 +18,6 @@ impl Generator {
     pub fn new(prog : NodeProgram) -> Self {
         Generator {m_prog: prog, m_output: "".to_string(), m_stack: StackHandler::new(), m_stack_size: 0, m_num_exponentials: 0}
     }
-
-    pub fn generate_comment(comment: &str) -> String {
-        if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
-            format!("\t// {}\n", comment)
-        } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
-            format!("\t; {}\n", comment)
-        } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-            format!("\t; {}\n", comment)
-        } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-            format!("\t; {}\n", comment)
-        } else {
-            String::new()
-        }
-    }
     
     pub fn get_out_assembly(& self) -> String {
         self.m_output.clone()
@@ -46,7 +32,7 @@ impl Generator {
         }
         if !self.m_output.contains(INSTRUCTION_FACTORY.get_exit_marker()){
             // TODO This boilerplate is also for a script that doesn't exit
-            self.m_output.push_str(&Self::generate_comment("Boiler plate for empty script"));
+            self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Boiler plate for empty script").as_str());
             self.m_output.push_str("\t");
             self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
             self.m_output.push_str("\n");
@@ -62,20 +48,20 @@ impl Generator {
     }
     
     fn generate_exit(&mut self, exit: &NodeExit){
-        self.m_output.push_str(&Self::generate_comment("Exit call"));
-        self.m_output.push_str(&Self::generate_comment(&format!("Exit Code = {}", exit.expr)));
+        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Exit call").as_str());
+        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("Exit Code = {}", exit.expr)).as_str());
         self.generate_arithmetic_expr(&exit.expr);
         self.pop(INSTRUCTION_FACTORY.get_exit_reg().to_string());
         self.m_output.push_str("\n\t");
         self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
         self.m_output.push_str("\n");
-        self.m_output.push_str(&Self::generate_comment("Exit end call"));
+        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Exit end call").as_str());
     }
     
     fn generate_id(&mut self, var: &NodeVariableAssignment) {
-        self.m_output.push_str(&Self::generate_comment("VarAssignment"));
+        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("VarAssignment").as_str());
         if let Token::ID {name, ..}  = &var.variable{
-            self.m_output.push_str(&Self::generate_comment(&format!("{var}")));
+            self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("{var}")).as_str());
             self.generate_arithmetic_expr(&var.value);
             self.m_stack.add_variable(name.clone(), self.infer_type(&var.value).to_string());
         }
@@ -114,7 +100,7 @@ impl Generator {
             NodeBaseExpr::ID(token) => {
                 if let Token::ID { name, .. } = token {
                     let offset = self.m_stack.get_offset(name.clone());
-                    self.m_output.push_str(&Self::generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", INSTRUCTION_FACTORY.get_load_variable_instr(offset))));
+                    self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", INSTRUCTION_FACTORY.get_load_variable_instr(offset))).as_str());
 
                     if cfg!(target_arch = "x86_64") {
                         self.push("rax");
@@ -436,11 +422,11 @@ mod test_generator{
     #[test]
     fn test_generate_comment() {
         if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64"){
-            let comment = Generator::generate_comment("Test Comment");
+            let comment = INSTRUCTION_FACTORY.generate_comment("Test Comment");
             assert_eq!(comment, "\t// Test Comment\n");
         }
         else {
-            let comment = Generator::generate_comment("Test Comment");
+            let comment = INSTRUCTION_FACTORY.generate_comment("Test Comment");
             assert_eq!(comment, "\t; Test Comment\n");
         }
     }

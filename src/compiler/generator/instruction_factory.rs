@@ -7,6 +7,16 @@ pub struct InstructionFactory{
 }
 
 impl InstructionFactory {
+    // Comments
+    pub fn generate_comment(&self, comment: &str) -> String {
+        if matches!(TARGET_OS, OS::Linux) && matches!(TARGET_ARCH, Arch::AArch64) {
+            format!("\t// {}\n", comment)
+        } else {
+            format!("\t; {}\n", comment)
+        }
+    }
+    
+    
     // Arithmetic operations
     pub fn get_addition_instr(&self) -> &str {
         match TARGET_ARCH {
