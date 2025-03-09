@@ -3,6 +3,7 @@ use either::Either::{Left, Right};
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::generator::{ArithmeticInstructions, StackHandler, INSTRUCTION_FACTORY};
+use crate::utility::{Arch, OS, TARGET_ARCH, TARGET_OS};
 
 pub struct Generator {
     m_prog: NodeProgram,
@@ -174,7 +175,7 @@ impl Generator {
         instruction_data: &((String, String), String, Vec<String>)
     ) {
         self.process_operand(operand);
-        
+
         let acc_reg = INSTRUCTION_FACTORY.get_base_reg();
 
         self.pop(acc_reg.to_string());
@@ -240,32 +241,36 @@ impl Generator {
     }
     
     fn push(&mut self, reg: &str) {
-        if cfg!(target_arch = "aarch64") {
-            self.m_output.push_str("\tsub sp, sp, #16\n");
-            self.m_output.push_str(&format!("\tstr {}, [sp, #8]\n", reg));
-            if cfg!(target_os = "macos") {
-                self.m_stack_size += 2;
-            } else if cfg!(target_os = "linux") {
+        match TARGET_ARCH {
+            Arch::X86_64 => {
+                self.m_output.push_str(&format!("\tpush {}\n", reg));
                 self.m_stack_size += 1;
             }
-        } else {
-            self.m_output.push_str(&format!("\tpush {}\n", reg));
-            self.m_stack_size += 1;
+            Arch::AArch64 => {
+                self.m_output.push_str("\tsub sp, sp, #16\n");
+                self.m_output.push_str(&format!("\tstr {}, [sp, #8]\n", reg));
+                match TARGET_OS {
+                    OS::Linux => {self.m_stack_size += 1;}
+                    _ => {self.m_stack_size += 2;}
+                }
+            }
         }
     }
     
     fn pop(&mut self, reg: String) {
-        if cfg!(target_arch = "aarch64") {
-            self.m_output.push_str(&format!("\tldr {}, [sp, #8]\n", reg));
-            self.m_output.push_str("\tadd sp, sp, #16\n");
-            if cfg!(target_os = "macos") {
-                self.m_stack_size -= 2;
-            } else if cfg!(target_os = "linux") {
+        match TARGET_ARCH {
+            Arch::X86_64 => {
+                self.m_output.push_str(&format!("\tpop {}\n", reg));
                 self.m_stack_size -= 1;
             }
-        } else {
-            self.m_output.push_str(&format!("\tpop {}\n", reg));
-            self.m_stack_size -= 1;
+            Arch::AArch64 => {
+                self.m_output.push_str(&format!("\tldr {}, [sp, #8]\n", reg));
+                self.m_output.push_str("\tadd sp, sp, #16\n");
+                match TARGET_OS {
+                    OS::Linux => {self.m_stack_size -= 1;}
+                    _ => {self.m_stack_size -= 2;}
+                }
+            }
         }
     }
     
@@ -312,20 +317,10 @@ mod test_generator{
     use crate::compiler::span::Span;
     use super::*;
     
-    fn assert_str_in_out_assembly(gen : &Generator, strs: Vec<&str>){
+    fn assert_str_in_out_assembly(gen : &Generator, strs: Vec<&str>) {
         let out = gen.get_out_assembly();
-        for str in strs{
+        for str in strs {
             assert!(out.contains(str), "{}", format!("The output doesn't contain \"{}\". The output was: \n{}", str, out))
-        }
-    }
-    
-    fn get_correct_reg() -> &'static str{
-        if cfg!(target_arch = "x86_64") {
-            "rax"
-        } else if cfg!(target_arch = "aarch64") {
-            "x0"
-        } else {
-            "rax"
         }
     }
     
@@ -416,17 +411,17 @@ mod test_generator{
     fn test_push_pop() {
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
         
-        gen.push(get_correct_reg());
-        if cfg!(target_arch = "x86_64") {
-            assert_eq!(gen.m_stack_size, 1);
-        } else if cfg!(target_arch = "aarch64") {
-            if cfg!(target_os = "macos") {
-                assert_eq!(gen.m_stack_size, 2);
-            } else if cfg!(target_os = "linux") {
-                assert_eq!(gen.m_stack_size, 1);
+        gen.push(INSTRUCTION_FACTORY.get_base_reg());
+        match TARGET_ARCH {
+            Arch::X86_64 => {assert_eq!(gen.m_stack_size, 1);}
+            Arch::AArch64 => {
+                match TARGET_OS {
+                    OS::Linux => {assert_eq!(gen.m_stack_size, 1);}
+                    _ => {assert_eq!(gen.m_stack_size, 2);}
+                }
             }
         }
-        gen.pop(get_correct_reg().to_string());
+        gen.pop(INSTRUCTION_FACTORY.get_base_reg().to_string());
         assert_eq!(gen.m_stack_size, 0);
     }
     
@@ -468,13 +463,14 @@ mod test_generator{
         let mut gen = Generator::new(NodeProgram { stmts: vec![id_assignment_stmt] });
 
         gen.generate();
-        let push_reg = get_correct_reg();
+        let push_reg = INSTRUCTION_FACTORY.get_base_reg();
         let mov_instr = INSTRUCTION_FACTORY.get_mov_number_instr("42");
-        let push_instr = if cfg!(target_arch = "x86_64") {
-            format!("\tpush {}\n", push_reg)
-        } else {
-            // On ARM64, the updated push routine subtracts 16 and then stores the value at offset 8.
-            format!("\tsub sp, sp, #16\n\tstr {}, [sp, #8]\n", push_reg)
+        let push_instr = match TARGET_ARCH{
+            Arch::X86_64 => {format!("\tpush {}\n", push_reg)}
+            Arch::AArch64 => {
+                // On ARM64, the updated push routine subtracts 16 and then stores the value at offset 8.
+                format!("\tsub sp, sp, #16\n\tstr {}, [sp, #8]\n", push_reg)
+            }
         };
         let should_contain = vec![
             "VarAssignment",
@@ -556,38 +552,37 @@ mod test_generator{
     #[test]
     fn test_push(){
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
-        let reg = get_correct_reg();
+        let reg = INSTRUCTION_FACTORY.get_base_reg();
         
         // First push
         gen.push(reg);
-        if cfg!(target_arch = "x86_64") {
-            assert_eq!(gen.m_stack_size, 1);
-        } else if cfg!(target_arch = "aarch64") {
-            if cfg!(target_os = "macos") {
-                assert_eq!(gen.m_stack_size, 2);
-            } else if cfg!(target_os = "linux") {
-                assert_eq!(gen.m_stack_size, 1);
+        match TARGET_ARCH {
+            Arch::X86_64 => {assert_eq!(gen.m_stack_size, 1);}
+            Arch::AArch64 => {
+                match TARGET_OS {
+                    OS::Linux => {assert_eq!(gen.m_stack_size, 1);}
+                    _ => {assert_eq!(gen.m_stack_size, 2);}
+                }
             }
         }
         
         // Second push
         gen.push(reg);
-        if cfg!(target_arch = "x86_64") {
-            assert_eq!(gen.m_stack_size, 2);
-        } else if cfg!(target_arch = "aarch64") {
-            if cfg!(target_os = "macos") {
-                assert_eq!(gen.m_stack_size, 4);
-            } else if cfg!(target_os = "linux") {
-                assert_eq!(gen.m_stack_size, 2);
+        match TARGET_ARCH {
+            Arch::X86_64 => {assert_eq!(gen.m_stack_size, 2);}
+            Arch::AArch64 => {
+                match TARGET_OS {
+                    OS::Linux => {assert_eq!(gen.m_stack_size, 2);}
+                    _ => {assert_eq!(gen.m_stack_size, 4);}
+                }
             }
         }
         
         let x86_expected = format!("\tpush {reg}\n");
         let arm_expected = format!("\tsub sp, sp, #16\n\tstr {reg}, [sp, #8]\n");
-        let should_contain = if cfg!(target_arch = "x86_64") { 
-            vec![x86_expected.as_str()]
-        } else { 
-            vec![arm_expected.as_str()]
+        let should_contain = match TARGET_ARCH {
+            Arch::X86_64 => vec![x86_expected.as_str()],
+            Arch::AArch64 => vec![arm_expected.as_str()]
         };
         
         assert_str_in_out_assembly(&gen, should_contain);
@@ -596,15 +591,15 @@ mod test_generator{
     #[test]
     fn test_pop(){
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
-        let reg = get_correct_reg();
+        let reg = INSTRUCTION_FACTORY.get_base_reg();
         gen.push(reg);
-        if cfg!(target_arch = "x86_64") {
-            assert_eq!(gen.m_stack_size, 1);
-        } else if cfg!(target_arch = "aarch64") {
-            if cfg!(target_os = "macos") {
-                assert_eq!(gen.m_stack_size, 2);
-            } else if cfg!(target_os = "linux") {
-                assert_eq!(gen.m_stack_size, 1);
+        match TARGET_ARCH {
+            Arch::X86_64 => {assert_eq!(gen.m_stack_size, 1);}
+            Arch::AArch64 => {
+                match TARGET_OS {
+                    OS::Linux => {assert_eq!(gen.m_stack_size, 1);}
+                    _ => {assert_eq!(gen.m_stack_size, 2);}
+                }
             }
         }
         gen.pop(reg.to_string());
@@ -612,10 +607,9 @@ mod test_generator{
     
         let x86_expected = format!("\tpop {reg}\n");
         let arm_expected = format!("\tldr {reg}, [sp, #8]\n\tadd sp, sp, #16\n");
-        let should_contain = if cfg!(target_arch = "x86_64") {
-            vec![x86_expected.as_str()]
-        } else {
-            vec![arm_expected.as_str()]
+        let should_contain = match TARGET_ARCH {
+            Arch::X86_64 => {vec![x86_expected.as_str()]}
+            Arch::AArch64 => {vec![arm_expected.as_str()]}
         };
         assert_str_in_out_assembly(&gen, should_contain);
     
