@@ -65,10 +65,9 @@ fn get_print_aarch64_linux() -> String {
     "\tmov x0, 1\n",  // stdout
     "\tmov x2, 1\n",  // write 1 byte
     ".loop:\n",
-    "\tmov x1, x20\n", // address of character
     "\tsvc #0\n",
-    "\tadd x20, x20, 1\n",
-    "\tldrb w3, [x20]\n",
+    "\tadd x1, x1, 1\n",
+    "\tldrb w3, [x1]\n",
     "\tcbnz w3, .loop\n",
     "\tret\n"
     ).to_string()
@@ -81,10 +80,9 @@ fn get_print_aarch64_mac() -> String {
     "\tmov x0, 1\n",  // stdout
     "\tmov x2, 1\n",  // write 1 byte
     ".loop:\n",
-    "\tmov x1, x20\n", // address of character
     "\tsvc #0x80\n",
-    "\tadd x20, x20, 1\n",
-    "\tldrb w3, [x20]\n",
+    "\tadd x1, x1, 1\n",
+    "\tldrb w3, [x1]\n",
     "\tcbnz w3, .loop\n",
     "\tret\n"
     ).to_string()
