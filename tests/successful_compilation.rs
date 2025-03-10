@@ -34,7 +34,7 @@ fn test_successful_compilation(){
     z = true && false
     {
         x = (12 + 8) * 5 - 20 // 3 % 9 + 50 // (8 - 2) * ((3 ** 4) - 7) + 100
-        print(x)
+        print(786)
     }
     exit(x)
     "#;
@@ -44,6 +44,9 @@ fn test_successful_compilation(){
         .args(["run", test_file.to_str().unwrap(), "--outdir", output_folder.to_str().unwrap()])
         .output()
         .expect("Failed to run compiler");
+    
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+    print!("{}", String::from_utf8_lossy(&output.stderr));
 
     assert!(
         output.status.success(),

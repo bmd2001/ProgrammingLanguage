@@ -33,7 +33,7 @@ impl Generator {
             // TODO This boilerplate is also for a script that doesn't exit
             self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Boiler plate for empty script").as_str());
             self.m_output.push_str("\t");
-            self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
+            self.m_output.push_str(INSTRUCTION_FACTORY.get_boiler_exit_instr());
             self.m_output.push_str("\n");
         }
         self.m_output.push_str(&INSTRUCTION_FACTORY.generate_comment("| Utility Subroutines"));
@@ -440,7 +440,7 @@ mod test_generator{
         gen.generate();
         let should_contain = vec![
             "Boiler plate for empty script",
-            INSTRUCTION_FACTORY.get_exit_instr()
+            INSTRUCTION_FACTORY.get_boiler_exit_instr()
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
@@ -473,13 +473,7 @@ mod test_generator{
         gen.generate();
         let push_reg = TARGET_ARCH.get_base_reg();
         let mov_instr = INSTRUCTION_FACTORY.get_mov_number_instr("42");
-        let push_instr = match TARGET_ARCH{
-            Arch::X86_64 => {format!("\tpush {}\n", push_reg)}
-            Arch::AArch64 => {
-                // On ARM64, the updated push routine subtracts 16 and then stores the value at offset 8.
-                format!("\tsub sp, sp, #16\n\tstr {}, [sp, #8]\n", push_reg)
-            }
-        };
+        let push_instr = format!("\tpush {}\n", push_reg);
         let should_contain = vec![
             "VarAssignment",
             mov_instr.as_str(),
@@ -578,12 +572,8 @@ mod test_generator{
             _ => {assert_eq!(gen.m_stack_size, 2);}
         }
 
-        let x86_expected = format!("\tpush {reg}\n");
-        let arm_expected = format!("\tsub sp, sp, #16\n\tstr {reg}, [sp, #8]\n");
-        let should_contain = match TARGET_ARCH {
-            Arch::X86_64 => vec![x86_expected.as_str()],
-            Arch::AArch64 => vec![arm_expected.as_str()]
-        };
+        let exp = format!("\tpush {reg}\n");
+        let should_contain = vec![exp.as_str()];
 
         assert_str_in_out_assembly(&gen, should_contain);
     }
@@ -600,13 +590,9 @@ mod test_generator{
         }
         gen.pop(reg);
         assert_eq!(gen.m_stack_size, 0);
-
-        let x86_expected = format!("\tpop {reg}\n");
-        let arm_expected = format!("\tldr {reg}, [sp, #8]\n\tadd sp, sp, #16\n");
-        let should_contain = match TARGET_ARCH {
-            Arch::X86_64 => {vec![x86_expected.as_str()]}
-            Arch::AArch64 => {vec![arm_expected.as_str()]}
-        };
+        
+        let exp = format!("\tpop {reg}\n");
+        let should_contain = vec![exp.as_str()];
         assert_str_in_out_assembly(&gen, should_contain);
 
         // Test that popping when the stack is empty causes a panic.

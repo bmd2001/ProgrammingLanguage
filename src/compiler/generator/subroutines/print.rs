@@ -20,7 +20,7 @@ pub fn get_print_subroutine() -> String {
 fn get_print_x86_64_mac() -> String {
     concat!(
     "print_string:\n",
-    "\tlea rbx, [rel buffer+20]\n",
+    "\tlea rbx, [rel buffer+32]\n",
     "\tmov al, [rsi]\n",
     "\tcmp rsi, rbx\n",
     "\tje .done\n",
@@ -65,10 +65,9 @@ fn get_print_aarch64_linux() -> String {
     "\tmov x0, 1\n",  // stdout
     "\tmov x2, 1\n",  // write 1 byte
     ".loop:\n",
-    "\tmov x1, x20\n", // address of character
     "\tsvc #0\n",
-    "\tadd x20, x20, 1\n",
-    "\tldrb w3, [x20]\n",
+    "\tadd x1, x1, 1\n",
+    "\tldrb w3, [x1]\n",
     "\tcbnz w3, .loop\n",
     "\tret\n"
     ).to_string()
@@ -77,16 +76,13 @@ fn get_print_aarch64_linux() -> String {
 fn get_print_aarch64_mac() -> String {
     concat!(
     "print_string:\n",
-    "\tldr x16, =0x2000004\n", // macOS syscall number for write
-    "\tmov x0, 1\n",  // stdout
-    "\tmov x2, 1\n",  // write 1 byte
-    ".loop:\n",
-    "\tmov x1, x20\n", // address of character
+    "\tldr x16, =0x2000004\n",
+    "\tmov x0, #1\n",
     "\tsvc #0x80\n",
-    "\tadd x20, x20, 1\n",
-    "\tldrb w3, [x20]\n",
-    "\tcbnz w3, .loop\n",
-    "\tret\n"
+    "\tLLD_ADDR x1, newline\n",
+    "\tmov x2, #1\n",
+    "\tsvc #0x80\n",
+    "\tret\n",
     ).to_string()
 }
 
