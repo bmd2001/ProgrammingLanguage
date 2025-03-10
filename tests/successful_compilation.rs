@@ -1,6 +1,4 @@
 use std::fs;
-use std::fs::Permissions;
-use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 
@@ -9,7 +7,21 @@ fn test_successful_compilation(){
     let input_folder = Path::new("tests/input/");
     let test_file = input_folder.join("test1_input.brs");
     let output_folder = Path::new("tests/output/");
-    let executable = Path::new("./").join(output_folder.join("test1_input"));
+    let executable = {
+        #[allow(unused_mut)] // The variable will be only modified on Windows
+        let mut exec_file_path = output_folder.join("test1_input");
+        // On Windows, add the .exe extension.
+        #[cfg(windows)]
+        {
+            exec_file_path.set_extension("exe");
+        }
+        #[cfg(unix)]
+        {
+            exec_file_path = Path::new("./").join(exec_file_path)
+        }
+        exec_file_path
+    };
+    
 
     fs::remove_dir_all(input_folder).ok();
     fs::remove_dir_all(output_folder).ok();
@@ -41,16 +53,29 @@ fn test_successful_compilation(){
     );
 
     // Run the compiled executable
-    fs::set_permissions(&executable, Permissions::from_mode(0o755))
-        .expect("Failed to set execute permissions on the binary");
-    let run_output = Command::new(&executable)
-        .output()
-        .expect("Failed to execute compiled binary");
+    #[cfg(unix)]
+    {
+        use std::fs::Permissions;
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&executable, Permissions::from_mode(0o755))
+            .expect("Failed to set execute permissions on the binary");
+    }
+    let run_output = if cfg!(windows) {
+        Command::new("cmd")
+            .args(executable.canonicalize())
+            .output()
+            .expect("Failed to execute compiled binary")
+    } else {
+        Command::new(&executable)
+            .output()
+            .expect("Failed to execute compiled binary")
+    };
 
     // Ensure execution was successful
     assert!(
         run_output.status.success(),
-        "Execution failed with stderr: {}\nThe program stdout was: {}",
+        "Execution Command {:?} failed.\n Execution failed with stderr: {}\nThe program stdout was: {}",
+        run_output,
         String::from_utf8_lossy(&run_output.stderr),
         String::from_utf8_lossy(&run_output.stdout)
     );

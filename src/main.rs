@@ -6,6 +6,7 @@ use std::env;
 use std::process::Command;
 use crate::compiler::Compiler;
 use std::path::Path;
+use crate::utility::{OS, TARGET_OS};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -27,7 +28,10 @@ fn main() {
     let file_name = file.file_name().unwrap().to_str().unwrap();
     let out_asm_file = out_dir.join(file_name.replace(".brs", ".asm"));
     let out_o_file = out_dir.join(file_name.replace(".brs", ".o"));
-    let final_file = out_dir.join(file_name.replace(".brs", ""));
+    let final_file = match TARGET_OS { 
+        OS::Windows => out_dir.join(file_name.replace(".brs", ".exe")),
+        _ => out_dir.join(file_name.replace(".brs", ""))
+    };
 
     println!("In file {}", file.display());
     println!("Out ASM file {}", out_asm_file.display());
@@ -210,7 +214,7 @@ fn main() {
                     ld_command
                         .arg("-nostdlib")
                         .arg("-o")
-                        .arg(format!("{}out.exe", out_dir))
+                        .arg(&final_file)
                         .arg(&out_o_file)
                         .arg("--entry")
                         .arg("_start")
