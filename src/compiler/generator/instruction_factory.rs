@@ -182,10 +182,10 @@ impl InstructionFactory {
             },
             Arch::AArch64 => {
                 concat!(
-                "\tldr x0, =buffer\n",
-                "\tadd x0, x0, 19\n",
+                "\tldr x7, =buffer\n",
+                "\tadd x7, x7, 19\n",
                 "\tbl int_to_string\n",
-                "\tmov x1, x0\n",
+                "\tmov x1, x7\n",
                 "\tadd x1, x1, 2\n",
                 "\tbl print_string\n",
                 )
