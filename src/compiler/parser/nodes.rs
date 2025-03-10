@@ -12,12 +12,18 @@ pub struct NodeProgram{
 #[derive(Clone, Debug, PartialEq)]
 pub enum NodeStmt {
     Exit(NodeExit),
+    Print(NodePrint),
     ID(NodeVariableAssignment),
     Scope(NodeScope)
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeExit {
+    pub(crate) expr: NodeArithmeticExpr
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct NodePrint {
     pub(crate) expr: NodeArithmeticExpr
 }
 
@@ -133,10 +139,17 @@ impl fmt::Display for NodeExit {
     }
 }
 
+impl fmt::Display for NodePrint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "print({})", self.expr)
+    }
+}
+
 impl fmt::Display for NodeStmt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             NodeStmt::Exit(exit) => write!(f, "{}", exit),
+            NodeStmt::Print(print) => write!(f, "{}", print),
             NodeStmt::ID(var_assign) => write!(f, "{}", var_assign),
             NodeStmt::Scope(scope) => {
                 write!(f, "{{")?;
@@ -231,6 +244,19 @@ mod test_nodes {
         // Testing NodeExit
         let formatted = format!("{}", NodeStmt::Exit(exit_node));
         assert_eq!(formatted, "exit(10)");
+    }
+    
+    #[test]
+    fn test_formatting_node_print(){
+        let dummy_span = Span::new(0, 0, 0);
+        let num_token = Token::Number { value: "10".to_string(), span: dummy_span };
+        let base_expr = NodeBaseExpr::Num(num_token);
+
+        let print_node = NodePrint { expr: NodeArithmeticExpr::Base(base_expr) };
+
+        // Testing NodeExit
+        let formatted = format!("{}", NodeStmt::Print(print_node));
+        assert_eq!(formatted, "print(10)");
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use either::Either;
 use either::Either::{Left, Right};
-use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
+use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodePrint, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
 use crate::compiler::generator::{ArithmeticInstructions, StackHandler, INSTRUCTION_FACTORY};
 use crate::utility::{Arch, OS, TARGET_ARCH, TARGET_OS};
@@ -36,11 +36,15 @@ impl Generator {
             self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
             self.m_output.push_str("\n");
         }
+        self.m_output.push_str(&INSTRUCTION_FACTORY.generate_comment("| Utility Subroutines"));
+        self.m_output.push_str("\n");
+        self.m_output.push_str(&INSTRUCTION_FACTORY.get_subroutines());
     }
     
     fn generate_stmt(&mut self, stmt: &NodeStmt) {
         match stmt {
             NodeStmt::Exit(exit) => self.generate_exit(exit),
+            NodeStmt::Print(print) => self.generate_print(print),
             NodeStmt::ID(var) => self.generate_id(var),
             NodeStmt::Scope(scope) => self.generate_scope(scope),
         }
@@ -57,6 +61,16 @@ impl Generator {
         self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Exit end call").as_str());
     }
     
+    fn generate_print(&mut self, print: &NodePrint){
+        self.m_output.push_str(&INSTRUCTION_FACTORY.generate_comment("Print call"));
+        self.m_output.push_str(&INSTRUCTION_FACTORY.generate_comment(&format!("Printing \"{}\" to the terminal", print.expr)));
+        self.generate_arithmetic_expr(&print.expr);
+        self.m_output.push_str("\n");
+        self.pop(TARGET_ARCH.get_base_reg());
+        self.m_output.push_str(INSTRUCTION_FACTORY.get_print_instr());
+        self.m_output.push_str("\n");
+    }
+
     fn generate_id(&mut self, var: &NodeVariableAssignment) {
         self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("VarAssignment").as_str());
         if let Token::ID {name, ..}  = &var.variable{
@@ -257,7 +271,7 @@ impl Generator {
             _ => 1
         }
     }
-    
+
     
     fn generate_exponential_labels(&mut self) -> (String, String){
         let result = (format!("exponential{}", self.m_num_exponentials), format!("exp_done{}", self.m_num_exponentials));
@@ -307,7 +321,7 @@ mod test_generator{
             assert!(out.contains(str), "{}", format!("The output doesn't contain \"{}\". The output was: \n{}", str, out))
         }
     }
-    
+
     fn create_operations() -> (Vec<NodeStmt>, Vec<String>){
         let dummy_span = Span::new(0, 0, 0);
         let expr1 = NodeBaseExpr::Num(Token::Number { value: "1".to_string(), span: dummy_span });
@@ -401,7 +415,7 @@ mod test_generator{
         gen.pop(TARGET_ARCH.get_base_reg());
         assert_eq!(gen.m_stack_size, 0);
     }
-    
+
 
 
     #[test]
@@ -427,6 +441,23 @@ mod test_generator{
         let should_contain = vec![
             "Boiler plate for empty script",
             INSTRUCTION_FACTORY.get_exit_instr()
+        ];
+        assert_str_in_out_assembly(&gen, should_contain);
+    }
+    
+    #[test]
+    fn test_generate_print(){
+        let dummy_span = Span::new(0, 0, 0);
+        let expr = NodeArithmeticExpr::Base(NodeBaseExpr::Num(Token::Number { value: "42".to_string(), span: dummy_span }));
+        let print_stmt = NodeStmt::Print(NodePrint { expr });
+        let mut gen = Generator::new(NodeProgram { stmts: vec![print_stmt] });
+
+        gen.generate();
+        let should_contain = vec![
+            "buffer",
+            "int_to_string",
+            "print_string",
+            ".int_to_string_loop"
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
@@ -457,7 +488,7 @@ mod test_generator{
         assert_str_in_out_assembly(&gen, should_contain);
     }
 
-    
+
     #[test]
     fn test_generate_scope(){
         let dummy_span = Span::new(0, 0, 0);
@@ -530,7 +561,7 @@ mod test_generator{
     fn test_push(){
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
         let reg = TARGET_ARCH.get_base_reg();
-        
+
         // First push
         gen.push(reg);
         match (TARGET_ARCH, TARGET_OS) {
@@ -538,7 +569,7 @@ mod test_generator{
             (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 2);}
             _ => {assert_eq!(gen.m_stack_size, 1);}
         }
-        
+
         // Second push
         gen.push(reg);
         match (TARGET_ARCH, TARGET_OS) {
@@ -546,16 +577,16 @@ mod test_generator{
             (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 4);}
             _ => {assert_eq!(gen.m_stack_size, 2);}
         }
-        
+
         let x86_expected = format!("\tpush {reg}\n");
         let arm_expected = format!("\tsub sp, sp, #16\n\tstr {reg}, [sp, #8]\n");
         let should_contain = match TARGET_ARCH {
             Arch::X86_64 => vec![x86_expected.as_str()],
             Arch::AArch64 => vec![arm_expected.as_str()]
         };
-        
+
         assert_str_in_out_assembly(&gen, should_contain);
-    }    
+    }
 
     #[test]
     fn test_pop(){
@@ -569,7 +600,7 @@ mod test_generator{
         }
         gen.pop(reg);
         assert_eq!(gen.m_stack_size, 0);
-    
+
         let x86_expected = format!("\tpop {reg}\n");
         let arm_expected = format!("\tldr {reg}, [sp, #8]\n\tadd sp, sp, #16\n");
         let should_contain = match TARGET_ARCH {
@@ -577,7 +608,7 @@ mod test_generator{
             Arch::AArch64 => {vec![arm_expected.as_str()]}
         };
         assert_str_in_out_assembly(&gen, should_contain);
-    
+
         // Test that popping when the stack is empty causes a panic.
         let prev_hook = panic::take_hook();
         panic::set_hook(Box::new(|_| {}));

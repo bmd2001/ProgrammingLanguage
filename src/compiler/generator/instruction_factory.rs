@@ -1,3 +1,4 @@
+use crate::compiler::generator::subroutines::Subroutines;
 use crate::utility::{Arch, OS, TARGET_ARCH, TARGET_OS};
 
 pub const INSTRUCTION_FACTORY: InstructionFactory = InstructionFactory{};
@@ -116,11 +117,31 @@ impl InstructionFactory {
     // System operations
     pub fn get_program_header(&self) -> &str {
         match (TARGET_ARCH, TARGET_OS) {
-            (Arch::X86_64, OS::Windows) => "extern ExitProcess\nglobal _start\n_start:\n",
+            (Arch::X86_64, OS::Windows) => concat!(
+                                            "extern ExitProcess\n",
+                                            "section .bss\n",
+                                            "buffer resb 20\n",
+                                            "section .text\n",
+                                            "\tglobal _start\n",
+                                            "_start:\n",),
             (Arch::AArch64, OS::Windows) => "extern ExitProcess\nglobal _start\n_start:\n",
-            (Arch::X86_64, _) => "global _start\n_start:\n",
-            (Arch::AArch64, _) => ".global _start\n_start:\n",
+            (Arch::X86_64, _) => concat!(
+                                "section .bss\n",
+                                "buffer resb 20\n",
+                                "section .text\n",
+                                "\tglobal _start\n",
+                                "_start:\n",),
+            (Arch::AArch64, _) => concat!(
+                                ".global _start\n",
+                                ".section .bss\n",
+                                ".lcomm buffer, 20\n\n",
+                                ".text\n",
+                                "_start:\n",)
         }
+    }
+
+    pub fn get_subroutines(&self) -> String{
+        Subroutines::new().generate()
     }
 
     pub fn get_exit_marker(&self) -> &str {
@@ -145,6 +166,31 @@ impl InstructionFactory {
             (Arch::AArch64, OS::Linux) => "mov x8, #93\n\tmov x0, #0\n\tsvc #0",
             (Arch::AArch64, OS::Windows) => "mov x0, 0\n\tbl ExitProcess",
             (Arch::AArch64, _) => "ldr x16, =0x2000001\n\tmov x0, 0\n\tsvc #0x80"
+        }
+    }
+
+    pub fn get_print_instr(&self) -> &str {
+        match TARGET_ARCH {
+            Arch::X86_64 => {
+                concat!(
+                "\tlea rdi, [rel buffer+19]\n",
+                "\tcall int_to_string\n",
+                "\tmov rsi, rdi\n",
+                "\tinc rsi\n",
+                "\tinc rsi\n",
+                "\tcall print_string\n",
+                )
+            },
+            Arch::AArch64 => {
+                concat!(
+                "\tldr x7, =buffer\n",
+                "\tadd x7, x7, 19\n",
+                "\tbl int_to_string\n",
+                "\tmov x1, x7\n",
+                "\tadd x1, x1, 2\n",
+                "\tbl print_string\n",
+                )
+            }
         }
     }
 
@@ -342,10 +388,29 @@ mod test_architecture{
     fn test_prog_header(){
         let instr_factory = InstructionFactory{};
         match (TARGET_ARCH, TARGET_OS) {
-            (Arch::X86_64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern ExitProcess\nglobal _start\n_start:\n"),
+            (Arch::X86_64, OS::Windows) => assert_eq!(instr_factory.get_program_header(),
+                                                        concat!(
+                                                        "extern ExitProcess\n",
+                                                        "section .bss\n",
+                                                        "buffer resb 20\n",
+                                                        "section .text\n",
+                                                        "\tglobal _start\n",
+                                                        "_start:\n")),
             (Arch::AArch64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern ExitProcess\nglobal _start\n_start:\n"),
-            (Arch::X86_64, _) => assert_eq!(instr_factory.get_program_header(),"global _start\n_start:\n"),
-            (Arch::AArch64, _) => assert_eq!(instr_factory.get_program_header(), ".global _start\n_start:\n")
+            (Arch::X86_64, _) => assert_eq!(instr_factory.get_program_header(),
+                                            concat!(
+                                            "section .bss\n",
+                                            "buffer resb 20\n",
+                                            "section .text\n",
+                                            "\tglobal _start\n",
+                                            "_start:\n",),),
+            (Arch::AArch64, _) => assert_eq!(instr_factory.get_program_header(),
+                                            concat!(
+                                            ".global _start\n",
+                                            "section .bss\n",
+                                            ".lcomm buffer, 20\n\n",
+                                            ".text\n",
+                                            "_start:\n",))
         }
     }
     
