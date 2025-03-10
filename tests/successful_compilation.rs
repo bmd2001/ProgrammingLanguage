@@ -29,12 +29,12 @@ fn test_successful_compilation(){
     fs::create_dir_all(output_folder).expect("Failed to create output folder");
     
     let source_code = r#"
-    x = ((3+5)*2 + (12//4))%7+(18//(6-3))*(2**3-4) + 10
+    x = 0
     y = true
     z = true && false
     {
-        x = 0
-        exit(x)
+        x = (12 + 8) * 5 - 20 // 3 % 9 + 50 // (8 - 2) * ((3 ** 4) - 7) + 100
+        print(x)
     }
     exit(x)
     "#;
@@ -79,6 +79,8 @@ fn test_successful_compilation(){
         String::from_utf8_lossy(&run_output.stderr),
         String::from_utf8_lossy(&run_output.stdout)
     );
+    
+    assert!(String::from_utf8_lossy(&run_output.stdout).contains("786"), "The executable is not printing correctly");
 
     fs::remove_dir_all(input_folder).unwrap();
     fs::remove_dir_all(output_folder).unwrap()
