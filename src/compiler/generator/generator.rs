@@ -1,10 +1,9 @@
 use either::Either;
 use either::Either::{Left, Right};
-use crate::compiler::generator::architecture::TARGET_ARCH;
 use crate::compiler::parser::{NodeProgram, NodeStmt, NodeExit, NodeBaseExpr, NodeVariableAssignment, NodeArithmeticExpr, NodeArithmeticOperation, NodeScope};
 use crate::compiler::tokenizer::{Operator, Token};
-use crate::compiler::generator::arithmetic_instructions::{ArithmeticInstructions};
-use crate::compiler::generator::stack_handler::StackHandler;
+use crate::compiler::generator::{ArithmeticInstructions, StackHandler, INSTRUCTION_FACTORY};
+use crate::utility::{Arch, OS, TARGET_ARCH, TARGET_OS};
 
 pub struct Generator {
     m_prog: NodeProgram,
@@ -19,36 +18,22 @@ impl Generator {
         Generator {m_prog: prog, m_output: "".to_string(), m_stack: StackHandler::new(), m_stack_size: 0, m_num_exponentials: 0}
     }
 
-    pub fn generate_comment(comment: &str) -> String {
-        if cfg!(all(target_os = "linux", target_arch = "aarch64")) {
-            format!("\t// {}\n", comment)
-        } else if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
-            format!("\t; {}\n", comment)
-        } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-            format!("\t; {}\n", comment)
-        } else if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
-            format!("\t; {}\n", comment)
-        } else {
-            String::new()
-        }
-    }
-    
     pub fn get_out_assembly(& self) -> String {
         self.m_output.clone()
     }
     
     pub fn generate(&mut self){
         self.m_output.clear();
-        self.m_output.push_str(TARGET_ARCH.get_program_header());
+        self.m_output.push_str(INSTRUCTION_FACTORY.get_program_header());
         let stmts = self.m_prog.get_stmts();
         for stmt in stmts {
             self.generate_stmt(&stmt);
         }
-        if !self.m_output.contains(TARGET_ARCH.get_exit_marker()){
+        if !self.m_output.contains(INSTRUCTION_FACTORY.get_exit_marker()){
             // TODO This boilerplate is also for a script that doesn't exit
-            self.m_output.push_str(&Self::generate_comment("Boiler plate for empty script"));
+            self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Boiler plate for empty script").as_str());
             self.m_output.push_str("\t");
-            self.m_output.push_str(TARGET_ARCH.get_exit_instr());
+            self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
             self.m_output.push_str("\n");
         }
     }
@@ -62,20 +47,20 @@ impl Generator {
     }
     
     fn generate_exit(&mut self, exit: &NodeExit){
-        self.m_output.push_str(&Self::generate_comment("Exit call"));
-        self.m_output.push_str(&Self::generate_comment(&format!("Exit Code = {}", exit.expr)));
+        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Exit call").as_str());
+        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("Exit Code = {}", exit.expr)).as_str());
         self.generate_arithmetic_expr(&exit.expr);
-        self.pop(TARGET_ARCH.get_exit_reg().to_string());
+        self.pop(INSTRUCTION_FACTORY.get_exit_reg());
         self.m_output.push_str("\n\t");
-        self.m_output.push_str(TARGET_ARCH.get_exit_instr());
+        self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
         self.m_output.push_str("\n");
-        self.m_output.push_str(&Self::generate_comment("Exit end call"));
+        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Exit end call").as_str());
     }
     
     fn generate_id(&mut self, var: &NodeVariableAssignment) {
-        self.m_output.push_str(&Self::generate_comment("VarAssignment"));
+        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("VarAssignment").as_str());
         if let Token::ID {name, ..}  = &var.variable{
-            self.m_output.push_str(&Self::generate_comment(&format!("{var}")));
+            self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("{var}")).as_str());
             self.generate_arithmetic_expr(&var.value);
             self.m_stack.add_variable(name.clone(), self.infer_type(&var.value).to_string());
         }
@@ -101,12 +86,8 @@ impl Generator {
         match p_expr {
             NodeBaseExpr::Num(token) => {
                 if let Token::Number { value, .. } = token {
-                    self.m_output.push_str(&format!("\t{}\n", TARGET_ARCH.get_mov_number_instr(value)));
-                    if cfg!(target_arch = "x86_64") {
-                        self.push("rax");
-                    } else if cfg!(target_arch = "aarch64") {
-                        self.push("x0");
-                    }
+                    self.m_output.push_str(&format!("\t{}\n", INSTRUCTION_FACTORY.get_mov_number_instr(value)));
+                    self.push(TARGET_ARCH.get_base_reg());
                 } else {
                     eprintln!("Wrong Tokenization");
                 }
@@ -114,25 +95,16 @@ impl Generator {
             NodeBaseExpr::ID(token) => {
                 if let Token::ID { name, .. } = token {
                     let offset = self.m_stack.get_offset(name.clone());
-                    self.m_output.push_str(&Self::generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", TARGET_ARCH.get_load_variable_instr(offset))));
-
-                    if cfg!(target_arch = "x86_64") {
-                        self.push("rax");
-                    } else if cfg!(target_arch = "aarch64") {
-                        self.push("x0");
-                    }
+                    self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("Recuperate {name}'s value from stack\n\t{}", INSTRUCTION_FACTORY.get_load_variable_instr(offset))).as_str());
+                    self.push(TARGET_ARCH.get_base_reg());
                 } else {
                     eprintln!("Wrong Tokenization");
                 }
             }
             NodeBaseExpr::Bool(token) => {
                 if let Token::Boolean { value, .. } = token {
-                    self.m_output.push_str(&format!("\t{}\n", TARGET_ARCH.get_mov_boolean_instr(*value)));
-                    if cfg!(target_arch = "x86_64") {
-                        self.push("rax");
-                    } else if cfg!(target_arch = "aarch64") {
-                        self.push("x0");
-                    }
+                    self.m_output.push_str(&format!("\t{}\n", INSTRUCTION_FACTORY.get_mov_boolean_instr(*value)));
+                    self.push(TARGET_ARCH.get_base_reg());
                 } else {
                     eprintln!("Wrong Tokenization");
                 }
@@ -204,13 +176,9 @@ impl Generator {
     ) {
         self.process_operand(operand);
 
-        let acc_reg = if cfg!(target_arch = "aarch64") {
-            "x0"
-        } else {
-            "rax" // default fallback
-        };
+        let acc_reg = TARGET_ARCH.get_base_reg();
 
-        self.pop(acc_reg.to_string());
+        self.pop(acc_reg);
 
         let instr_code = instruction_data.2.join("\n\t");
         self.m_output.push_str("\t");
@@ -266,39 +234,27 @@ impl Generator {
     }
 
     fn push_pop(&mut self, pop_regs: (String, String), res_reg: &str, instruction: &str){
-        self.pop(pop_regs.1);
-        self.pop(pop_regs.0);
+        self.pop(&pop_regs.1);
+        self.pop(&pop_regs.0);
         self.m_output.push_str(instruction);
         self.push(res_reg);
     }
     
     fn push(&mut self, reg: &str) {
-        if cfg!(target_arch = "aarch64") {
-            self.m_output.push_str("\tsub sp, sp, #16\n");
-            self.m_output.push_str(&format!("\tstr {}, [sp, #8]\n", reg));
-            if cfg!(target_os = "macos") {
-                self.m_stack_size += 2;
-            } else if cfg!(target_os = "linux") {
-                self.m_stack_size += 1;
-            }
-        } else {
-            self.m_output.push_str(&format!("\tpush {}\n", reg));
-            self.m_stack_size += 1;
+        self.m_output.push_str(&INSTRUCTION_FACTORY.get_push_instr(reg));
+        self.m_stack_size += match (TARGET_ARCH, TARGET_OS){
+            (Arch::AArch64, OS::MacOS) => 2,
+            (Arch::AArch64, OS::Windows) => 2,
+            _ => 1
         }
     }
     
-    fn pop(&mut self, reg: String) {
-        if cfg!(target_arch = "aarch64") {
-            self.m_output.push_str(&format!("\tldr {}, [sp, #8]\n", reg));
-            self.m_output.push_str("\tadd sp, sp, #16\n");
-            if cfg!(target_os = "macos") {
-                self.m_stack_size -= 2;
-            } else if cfg!(target_os = "linux") {
-                self.m_stack_size -= 1;
-            }
-        } else {
-            self.m_output.push_str(&format!("\tpop {}\n", reg));
-            self.m_stack_size -= 1;
+    fn pop(&mut self, reg: &str) {
+        self.m_output.push_str(&INSTRUCTION_FACTORY.get_pop_instr(reg));
+        self.m_stack_size -= match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => 2,
+            (Arch::AArch64, OS::Windows) => 2,
+            _ => 1
         }
     }
     
@@ -345,20 +301,10 @@ mod test_generator{
     use crate::compiler::span::Span;
     use super::*;
     
-    fn assert_str_in_out_assembly(gen : &Generator, strs: Vec<&str>){
+    fn assert_str_in_out_assembly(gen : &Generator, strs: Vec<&str>) {
         let out = gen.get_out_assembly();
-        for str in strs{
+        for str in strs {
             assert!(out.contains(str), "{}", format!("The output doesn't contain \"{}\". The output was: \n{}", str, out))
-        }
-    }
-    
-    fn get_correct_reg() -> &'static str{
-        if cfg!(target_arch = "x86_64") {
-            "rax"
-        } else if cfg!(target_arch = "aarch64") {
-            "x0"
-        } else {
-            "rax"
         }
     }
     
@@ -415,33 +361,30 @@ mod test_generator{
         ];
         let mut gen = Generator::new(NodeProgram{ stmts: vec![] });
         let exp_labels = gen.generate_exponential_labels();
-        let exp_instr = TARGET_ARCH.get_exponentiation_instr();
+        let exp_instr = INSTRUCTION_FACTORY.get_exponentiation_instr();
         let exp_instr = exp_instr.replace("{exp_label}", &*exp_labels.0);
         let exp_instr = exp_instr.replace("{done_label}", &*exp_labels.1);
         let instrs = vec![
-            TARGET_ARCH.get_addition_instr().to_string(),
-            TARGET_ARCH.get_subtraction_instr().to_string(),
-            TARGET_ARCH.get_multiplication_instr().to_string(),
-            TARGET_ARCH.get_division_instr().to_string(),
-            TARGET_ARCH.get_modulo_instr().to_string(),
+            INSTRUCTION_FACTORY.get_addition_instr().to_string(),
+            INSTRUCTION_FACTORY.get_subtraction_instr().to_string(),
+            INSTRUCTION_FACTORY.get_multiplication_instr().to_string(),
+            INSTRUCTION_FACTORY.get_division_instr().to_string(),
+            INSTRUCTION_FACTORY.get_modulo_instr().to_string(),
             exp_instr,
-            TARGET_ARCH.get_and_instr().to_string(),
-            TARGET_ARCH.get_or_instr().to_string(),
-            TARGET_ARCH.get_xor_instr().to_string(),
-            TARGET_ARCH.get_not_instr().to_string(),
+            INSTRUCTION_FACTORY.get_and_instr().to_string(),
+            INSTRUCTION_FACTORY.get_or_instr().to_string(),
+            INSTRUCTION_FACTORY.get_xor_instr().to_string(),
+            INSTRUCTION_FACTORY.get_not_instr().to_string(),
         ];
         zip(ops, instrs)
     }
 
     #[test]
     fn test_generate_comment() {
-        if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64"){
-            let comment = Generator::generate_comment("Test Comment");
-            assert_eq!(comment, "\t// Test Comment\n");
-        }
-        else {
-            let comment = Generator::generate_comment("Test Comment");
-            assert_eq!(comment, "\t; Test Comment\n");
+        let comment = INSTRUCTION_FACTORY.generate_comment("Test Comment");
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::Linux) => assert_eq!(comment, "\t// Test Comment\n"),
+            _ => assert_eq!(comment, "\t; Test Comment\n")
         }
     }
 
@@ -449,17 +392,13 @@ mod test_generator{
     fn test_push_pop() {
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
         
-        gen.push(get_correct_reg());
-        if cfg!(target_arch = "x86_64") {
-            assert_eq!(gen.m_stack_size, 1);
-        } else if cfg!(target_arch = "aarch64") {
-            if cfg!(target_os = "macos") {
-                assert_eq!(gen.m_stack_size, 2);
-            } else if cfg!(target_os = "linux") {
-                assert_eq!(gen.m_stack_size, 1);
-            }
+        gen.push(TARGET_ARCH.get_base_reg());
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
+            (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 2);}
+            _ => {assert_eq!(gen.m_stack_size, 1);}
         }
-        gen.pop(get_correct_reg().to_string());
+        gen.pop(TARGET_ARCH.get_base_reg());
         assert_eq!(gen.m_stack_size, 0);
     }
     
@@ -476,7 +415,7 @@ mod test_generator{
         let should_contain = vec![
             "Exit call",
             "Exit Code = 42",
-            TARGET_ARCH.get_exit_instr()
+            INSTRUCTION_FACTORY.get_exit_instr()
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
@@ -487,7 +426,7 @@ mod test_generator{
         gen.generate();
         let should_contain = vec![
             "Boiler plate for empty script",
-            TARGET_ARCH.get_exit_instr()
+            INSTRUCTION_FACTORY.get_exit_instr()
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
@@ -501,13 +440,14 @@ mod test_generator{
         let mut gen = Generator::new(NodeProgram { stmts: vec![id_assignment_stmt] });
 
         gen.generate();
-        let push_reg = get_correct_reg();
-        let mov_instr = TARGET_ARCH.get_mov_number_instr("42");
-        let push_instr = if cfg!(target_arch = "x86_64") {
-            format!("\tpush {}\n", push_reg)
-        } else {
-            // On ARM64, the updated push routine subtracts 16 and then stores the value at offset 8.
-            format!("\tsub sp, sp, #16\n\tstr {}, [sp, #8]\n", push_reg)
+        let push_reg = TARGET_ARCH.get_base_reg();
+        let mov_instr = INSTRUCTION_FACTORY.get_mov_number_instr("42");
+        let push_instr = match TARGET_ARCH{
+            Arch::X86_64 => {format!("\tpush {}\n", push_reg)}
+            Arch::AArch64 => {
+                // On ARM64, the updated push routine subtracts 16 and then stores the value at offset 8.
+                format!("\tsub sp, sp, #16\n\tstr {}, [sp, #8]\n", push_reg)
+            }
         };
         let should_contain = vec![
             "VarAssignment",
@@ -534,7 +474,7 @@ mod test_generator{
             "VarAssignment",
             "Exit call",
             "Exit Code = 42",
-            TARGET_ARCH.get_exit_instr()
+            INSTRUCTION_FACTORY.get_exit_instr()
         ];
         assert_str_in_out_assembly(&gen, should_contain);
     }
@@ -589,38 +529,29 @@ mod test_generator{
     #[test]
     fn test_push(){
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
-        let reg = get_correct_reg();
+        let reg = TARGET_ARCH.get_base_reg();
         
         // First push
         gen.push(reg);
-        if cfg!(target_arch = "x86_64") {
-            assert_eq!(gen.m_stack_size, 1);
-        } else if cfg!(target_arch = "aarch64") {
-            if cfg!(target_os = "macos") {
-                assert_eq!(gen.m_stack_size, 2);
-            } else if cfg!(target_os = "linux") {
-                assert_eq!(gen.m_stack_size, 1);
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
+            (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 2);}
+            _ => {assert_eq!(gen.m_stack_size, 1);}
         }
         
         // Second push
         gen.push(reg);
-        if cfg!(target_arch = "x86_64") {
-            assert_eq!(gen.m_stack_size, 2);
-        } else if cfg!(target_arch = "aarch64") {
-            if cfg!(target_os = "macos") {
-                assert_eq!(gen.m_stack_size, 4);
-            } else if cfg!(target_os = "linux") {
-                assert_eq!(gen.m_stack_size, 2);
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 4);}
+            (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 4);}
+            _ => {assert_eq!(gen.m_stack_size, 2);}
         }
         
         let x86_expected = format!("\tpush {reg}\n");
         let arm_expected = format!("\tsub sp, sp, #16\n\tstr {reg}, [sp, #8]\n");
-        let should_contain = if cfg!(target_arch = "x86_64") { 
-            vec![x86_expected.as_str()]
-        } else { 
-            vec![arm_expected.as_str()]
+        let should_contain = match TARGET_ARCH {
+            Arch::X86_64 => vec![x86_expected.as_str()],
+            Arch::AArch64 => vec![arm_expected.as_str()]
         };
         
         assert_str_in_out_assembly(&gen, should_contain);
@@ -629,33 +560,28 @@ mod test_generator{
     #[test]
     fn test_pop(){
         let mut gen = Generator::new(NodeProgram { stmts: Vec::new() });
-        let reg = get_correct_reg();
+        let reg = TARGET_ARCH.get_base_reg();
         gen.push(reg);
-        if cfg!(target_arch = "x86_64") {
-            assert_eq!(gen.m_stack_size, 1);
-        } else if cfg!(target_arch = "aarch64") {
-            if cfg!(target_os = "macos") {
-                assert_eq!(gen.m_stack_size, 2);
-            } else if cfg!(target_os = "linux") {
-                assert_eq!(gen.m_stack_size, 1);
-            }
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
+            (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 2);}
+            _ => {assert_eq!(gen.m_stack_size, 1);}
         }
-        gen.pop(reg.to_string());
+        gen.pop(reg);
         assert_eq!(gen.m_stack_size, 0);
     
         let x86_expected = format!("\tpop {reg}\n");
         let arm_expected = format!("\tldr {reg}, [sp, #8]\n\tadd sp, sp, #16\n");
-        let should_contain = if cfg!(target_arch = "x86_64") {
-            vec![x86_expected.as_str()]
-        } else {
-            vec![arm_expected.as_str()]
+        let should_contain = match TARGET_ARCH {
+            Arch::X86_64 => {vec![x86_expected.as_str()]}
+            Arch::AArch64 => {vec![arm_expected.as_str()]}
         };
         assert_str_in_out_assembly(&gen, should_contain);
     
         // Test that popping when the stack is empty causes a panic.
         let prev_hook = panic::take_hook();
         panic::set_hook(Box::new(|_| {}));
-        let failure = panic::catch_unwind(std::panic::AssertUnwindSafe(|| gen.pop(reg.to_string())));
+        let failure = panic::catch_unwind(panic::AssertUnwindSafe(|| gen.pop(reg)));
         panic::set_hook(prev_hook);
         assert!(failure.is_err());
     }

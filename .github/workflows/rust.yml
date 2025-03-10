@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-13, macos-latest, windows-latest]
         include:
           - os: ubuntu-latest
             arch: x86_64
@@ -26,13 +26,27 @@ jobs:
           - os: macos-latest
             arch: aarch64
             rust_target: aarch64-apple-darwin
+          - os: windows-latest
+            arch: x86_64
+            rust_target: x86_64-pc-windows-msvc
 
     steps:
       - name: Work around spurious network errors in curl 8.0
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           if rustc +stable --version --verbose | grep -q '^release: 1\.7[01]\.'; then
             echo CARGO_HTTP_MULTIPLEXING=false >> $GITHUB_ENV
           fi
+
+      - name: Work around spurious network errors in curl 8.0 (PowerShell)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $output = rustc +stable --version --verbose
+          if ($output -match '^release: 1\.7[01]\.') {
+            "CARGO_HTTP_MULTIPLEXING=false" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,6 +60,11 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt update && sudo apt install -y build-essential gcc
+
+      - name: Install Yasm on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install yasm -y
 
       - name: Install NASM (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
@@ -69,20 +88,32 @@ jobs:
         run: rustup target add ${{ matrix.rust_target }}
 
       - name: Run
+        shell: bash
         run: |
           RUST_BACKTRACE=full cargo build --target ${{ matrix.rust_target }} --color=always --verbose --profile dev
           RUST_BACKTRACE=full cargo run .github/workflows/run.brs --target ${{ matrix.rust_target }} --verbose -- --outdir target/debug/
+          
       - name: Test
+        shell: bash
         run: |
           RUST_BACKTRACE=full cargo build --target ${{ matrix.rust_target }} --color=always --verbose --tests --profile test
           RUST_BACKTRACE=full cargo test --target ${{ matrix.rust_target }} --verbose -- --test-threads=1
-          
-      - name: Run Tests with Coverage for ${{ matrix.rust_target }}
+
+      - name: Run Tests with Coverage (Windows) for ${{ matrix.rust_target }}
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir -p coverage
+          cargo install cargo-llvm-cov
+          cargo llvm-cov --target ${{ matrix.rust_target }} --bin BRS --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info -- --test-threads=1
+        
+      - name: Run Tests with Coverag (Non-Windows) for ${{ matrix.rust_target }}
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           mkdir -p coverage
           cargo install cargo-llvm-cov
           cargo llvm-cov --target ${{ matrix.rust_target }} --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info -- --test-threads=1
-
 
       - name: Upload Coverage Report for ${{ matrix.rust_target }}
         uses: actions/upload-artifact@v4
@@ -101,6 +132,7 @@ jobs:
         with:
           path: coverage/
           merge-multiple: true
+
       - name: Display structure of downloaded files
         run: ls -R coverage/
 
@@ -110,10 +142,12 @@ jobs:
       - name: Fix Paths in Coverage Reports
         run: |
           for f in coverage/*.info; do
+            sed -i 's|\\|/|g' "$f"
             sed -i 's|/Users/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
             sed -i 's|/home/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
+            sed -i 's|C:/Users/runneradmin/work/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
+            sed -i 's|D:/a/ProgrammingLanguage/ProgrammingLanguage|.|g' "$f"
           done
-
 
       - name: Merge Coverage Reports
         run: |
@@ -121,12 +155,16 @@ jobs:
                -a coverage/coverage-aarch64-unknown-linux-gnu.info \
                -a coverage/coverage-x86_64-apple-darwin.info \
                -a coverage/coverage-x86_64-unknown-linux-gnu.info \
+               -a coverage/coverage-x86_64-pc-windows-msvc.info \
                -o coverage/lcov_${{ github.event.pull_request.number }}.info
 
       - name: Fix Coverage Paths
         run: |
+          sed -i 's|\\|/|g' coverage/lcov_${{ github.event.pull_request.number }}.info
           sed -i 's|/Users/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' coverage/lcov_${{ github.event.pull_request.number }}.info
-
+          sed -i 's|/home/runner/work/ProgrammingLanguage/ProgrammingLanguage|.|g' coverage/lcov_${{ github.event.pull_request.number }}.info
+          sed -i 's|C:/Users/runneradmin/work/ProgrammingLanguage/ProgrammingLanguage|.|g' coverage/lcov_${{ github.event.pull_request.number }}.info
+          sed -i 's|D:/a/ProgrammingLanguage/ProgrammingLanguage|.|g' coverage/lcov_${{ github.event.pull_request.number }}.info
 
       - name: Upload Final Coverage Report
         uses: actions/upload-artifact@v4
