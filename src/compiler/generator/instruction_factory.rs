@@ -133,6 +133,7 @@ impl InstructionFactory {
                                 "_start:\n",),
             (Arch::AArch64, _) => concat!(
                                 ".global _start\n",
+                                "section .bss\n",
                                 ".lcomm buffer, 20\n\n",
                                 ".text\n",
                                 "_start:\n",)
