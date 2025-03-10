@@ -66,6 +66,7 @@ impl Generator {
         self.m_output.push_str(&INSTRUCTION_FACTORY.generate_comment(&format!("Printing \"{}\" to the terminal", print.expr)));
         self.generate_arithmetic_expr(&print.expr);
         self.m_output.push_str("\n");
+        self.push(TARGET_ARCH.get_base_reg());
         self.pop(TARGET_ARCH.get_base_reg());
         self.m_output.push_str(INSTRUCTION_FACTORY.get_print_instr());
         self.m_output.push_str("\n");
