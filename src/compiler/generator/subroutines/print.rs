@@ -1,6 +1,4 @@
-use crate::compiler::generator::architecture::Arch;
-use crate::compiler::generator::os::OS;
-use crate::compiler::generator::{TARGET_ARCH, TARGET_OS};
+use crate::utility::{TARGET_ARCH, Arch, TARGET_OS, OS};
 
 pub fn get_print_subroutine() -> String {
     match TARGET_ARCH {

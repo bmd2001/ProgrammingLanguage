@@ -1,5 +1,4 @@
-use crate::compiler::generator::architecture::Arch;
-use crate::compiler::generator::TARGET_ARCH;
+use crate::utility::{TARGET_ARCH, Arch};
 
 pub fn get_int_to_str_subroutine() -> String{
     match TARGET_ARCH {

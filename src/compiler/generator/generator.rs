@@ -36,9 +36,9 @@ impl Generator {
             self.m_output.push_str(INSTRUCTION_FACTORY.get_exit_instr());
             self.m_output.push_str("\n");
         }
-        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("| Utility Subroutines"));
+        self.m_output.push_str(&INSTRUCTION_FACTORY.generate_comment("| Utility Subroutines"));
         self.m_output.push_str("\n");
-        self.m_output.push_str(INSTRUCTION_FACTORY.get_subroutines().as_str());
+        self.m_output.push_str(&INSTRUCTION_FACTORY.get_subroutines());
     }
     
     fn generate_stmt(&mut self, stmt: &NodeStmt) {
@@ -62,8 +62,8 @@ impl Generator {
     }
     
     fn generate_print(&mut self, print: &NodePrint){
-        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment("Print call"));
-        self.m_output.push_str(INSTRUCTION_FACTORY.generate_comment(&format!("Printing \"{}\" to the terminal", print.expr)));
+        self.m_output.push_str(&INSTRUCTION_FACTORY.generate_comment("Print call"));
+        self.m_output.push_str(&INSTRUCTION_FACTORY.generate_comment(&format!("Printing \"{}\" to the terminal", print.expr)));
         self.generate_arithmetic_expr(&print.expr);
         self.m_output.push_str("\n");
         self.pop(TARGET_ARCH.get_base_reg());
