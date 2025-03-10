@@ -29,16 +29,16 @@ fn get_int_to_str_x86_64() -> String{
 fn get_int_to_str_aarch64() -> String{
     concat!(
     "int_to_string:\n",
-    "\tmov w1, 10\n",
-    "\tmov w2, 0\n",
+    "\tmov x1, 10\n",
+    "\tmov x2, 0\n",
     "\tb .int_to_string_loop\n\n",
     ".int_to_string_loop:\n",
-    "\tudiv w3, x0, w1\n",
-    "\tmsub w4, w3, w1, x7\n",
-    "\tadd w4, w4, '0'\n",
+    "\tudiv x3, x0, x1\n",
+    "\tmsub x4, x3, x1, x7\n",
+    "\tadd x4, x4, '0'\n",
     "\tstrb w4, [x7], -1\n",
-    "\tmov x0, w3\n",
-    "\tadd w2, w2, 1\n",
+    "\tmov x0, x3\n",
+    "\tadd x2, x2, 1\n",
     "\tcmp x0, 0\n",
     "\tbne .int_to_string_loop\n",
     "\tret\n"
