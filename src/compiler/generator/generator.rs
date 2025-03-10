@@ -17,7 +17,7 @@ impl Generator {
     pub fn new(prog : NodeProgram) -> Self {
         Generator {m_prog: prog, m_output: "".to_string(), m_stack: StackHandler::new(), m_stack_size: 0, m_num_exponentials: 0}
     }
-    
+
     pub fn get_out_assembly(& self) -> String {
         self.m_output.clone()
     }
@@ -244,6 +244,7 @@ impl Generator {
         self.m_output.push_str(&INSTRUCTION_FACTORY.get_push_instr(reg));
         self.m_stack_size += match (TARGET_ARCH, TARGET_OS){
             (Arch::AArch64, OS::MacOS) => 2,
+            (Arch::AArch64, OS::Windows) => 2,
             _ => 1
         }
     }
@@ -252,6 +253,7 @@ impl Generator {
         self.m_output.push_str(&INSTRUCTION_FACTORY.get_pop_instr(reg));
         self.m_stack_size -= match (TARGET_ARCH, TARGET_OS) {
             (Arch::AArch64, OS::MacOS) => 2,
+            (Arch::AArch64, OS::Windows) => 2,
             _ => 1
         }
     }
@@ -393,6 +395,7 @@ mod test_generator{
         gen.push(TARGET_ARCH.get_base_reg());
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
+            (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 2);}
             _ => {assert_eq!(gen.m_stack_size, 1);}
         }
         gen.pop(TARGET_ARCH.get_base_reg());
@@ -532,6 +535,7 @@ mod test_generator{
         gen.push(reg);
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
+            (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 2);}
             _ => {assert_eq!(gen.m_stack_size, 1);}
         }
         
@@ -539,6 +543,7 @@ mod test_generator{
         gen.push(reg);
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 4);}
+            (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 4);}
             _ => {assert_eq!(gen.m_stack_size, 2);}
         }
         
@@ -559,6 +564,7 @@ mod test_generator{
         gen.push(reg);
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::AArch64, OS::MacOS) => {assert_eq!(gen.m_stack_size, 2);}
+            (Arch::AArch64, OS::Windows) => {assert_eq!(gen.m_stack_size, 2);}
             _ => {assert_eq!(gen.m_stack_size, 1);}
         }
         gen.pop(reg);
