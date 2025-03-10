@@ -406,6 +406,7 @@ mod test_architecture{
             (Arch::AArch64, _) => assert_eq!(instr_factory.get_program_header(),
                                             concat!(
                                             ".global _start\n",
+                                            "section .bss\n",
                                             ".lcomm buffer, 20\n\n",
                                             ".text\n",
                                             "_start:\n",))

@@ -1,7 +1,6 @@
 use std::sync::{Arc, Mutex};
 use either::{Either, Left, Right};
-use crate::compiler::parser::{NodeArithmeticExpr, NodeStmt, NodeExit, ParserErrorType, ParserLogger, ExpressionFactory, NodeArithmeticOperation, NodeBaseExpr, NodeScope, NodeVariableAssignment};
-use crate::compiler::parser::nodes::NodePrint;
+use crate::compiler::parser::{NodeArithmeticExpr, NodeStmt, NodeExit, NodePrint, ParserErrorType, ParserLogger, ExpressionFactory, NodeArithmeticOperation, NodeBaseExpr, NodeScope, NodeVariableAssignment};
 use crate::compiler::parser::token_stream::TokenStream;
 use crate::compiler::tokenizer::Token;
 
