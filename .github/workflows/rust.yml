@@ -90,30 +90,16 @@ jobs:
       - name: Run
         shell: bash
         run: |
-          RUST_BACKTRACE=1 cargo build --target ${{ matrix.rust_target }} --color=always --verbose --profile dev
-          RUST_BACKTRACE=1 cargo run .github/workflows/run.brs --target ${{ matrix.rust_target }} --verbose -- --outdir target/debug/
+          RUST_BACKTRACE=full cargo build --target ${{ matrix.rust_target }} --color=always --verbose --profile dev
+          RUST_BACKTRACE=full cargo run .github/workflows/run.brs --target ${{ matrix.rust_target }} --verbose -- --outdir target/debug/
 
-      - name: Test
-        shell: bash
-        run: |
-          RUST_BACKTRACE=1 cargo build --target ${{ matrix.rust_target }} --color=always --verbose --tests --profile test
-          RUST_BACKTRACE=1 cargo test --target ${{ matrix.rust_target }} --verbose --bin BRS -- --test-threads=1
-
-      - name: Run Tests with Coverage (Windows) for ${{ matrix.rust_target }}
-        if: runner.os == 'Windows'
+      - name: Tests with Coverage for ${{ matrix.rust_target }}
         shell: bash
         run: |
           mkdir -p coverage
           cargo install cargo-llvm-cov
-          cargo llvm-cov --target ${{ matrix.rust_target }} --bin BRS --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info -- --test-threads=1
-        
-      - name: Run Tests with Coverag (Non-Windows) for ${{ matrix.rust_target }}
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          mkdir -p coverage
-          cargo install cargo-llvm-cov
-          cargo llvm-cov --target ${{ matrix.rust_target }} --bin=BRS --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info -- --test-threads=1
+          RUST_BACKTRACE=full cargo build --target ${{ matrix.rust_target }} --color=always --verbose --tests --profile test
+          RUST_BACKTRACE=full cargo llvm-cov --target ${{ matrix.rust_target }} --verbose --all-features --workspace --lcov --output-path coverage/coverage-${{ matrix.rust_target }}.info -- --test-threads=1
 
       - name: Upload Coverage Report for ${{ matrix.rust_target }}
         uses: actions/upload-artifact@v4
