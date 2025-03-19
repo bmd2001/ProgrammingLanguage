@@ -64,7 +64,7 @@ fn test_successful_compilation(){
             .expect("Failed to set execute permissions on the binary");
     }
     let run_output = if cfg!(windows) {
-        Command::new("cmd")
+        Command::new("start")
             .args(executable.canonicalize())
             .output()
             .expect("Failed to execute compiled binary")
