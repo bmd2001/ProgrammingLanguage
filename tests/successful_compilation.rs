@@ -56,6 +56,7 @@ fn test_successful_compilation(){
         String::from_utf8_lossy(&output.stdout)
     );
 
+    dbg!(std::env::current_dir().unwrap().as_path());
     match fs::read_dir(output_folder) {
         Ok(entries) => {
             for entry in entries {
