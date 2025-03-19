@@ -20,21 +20,15 @@ pub fn get_print_subroutine() -> String {
 fn get_print_x86_64_mac() -> String {
     concat!(
     "print_string:\n",
-    "\tlea rbx, [rel buffer+32]\n",
-    "\tmov al, [rsi]\n",
-    "\tcmp rsi, rbx\n",
-    "\tje .done\n",
     "\tmov rax, 0x2000004\n",
+    "\tmov rsi, rdi\n",
     "\tmov rdi, 1\n",
-    "\tmov rdx, 1\n",
+    "\tmov rdx, rcx\n", // length
     "\tsyscall\n",
-    "\tinc rsi\n",
-    "\tjmp print_string\n",
-    ".done:\n",
-    "\tpush 10\n",
-    "\tlea rsi, [rsp]\n",
     "\tmov rax, 0x2000004\n",
-    "\tmov rdi, 1\n",
+    "\tsub rsp, 8\n",
+    "\tmov byte [rsp], 0x0A\n",
+    "\tmov rsi, rsp\n",
     "\tmov rdx, 1\n",
     "\tsyscall\n",
     "\tadd rsp, 8\n",
@@ -46,14 +40,17 @@ fn get_print_x86_64_linux() -> String {
     concat!(
     "print_string:\n",
     "\tmov rax, 1\n", // syscall: sys_write
+    "\tmov rsi, rdi\n", // address of character
     "\tmov rdi, 1\n", // stdout
-    "\tmov rdx, 1\n", // write 1 byte
-    ".loop:\n",
-    "\tmov rsi, rbx\n", // address of character
+    "\tmov rdx, rcx\n", // length
     "\tsyscall\n",
-    "\tinc rbx\n",
-    "\tcmp byte [rbx], 0\n",
-    "\tjne .loop\n",
+    "\tmov rax, 1\n",
+    "\tsub rsp, 8\n",
+    "\tmov byte [rsp], 0x0A\n",
+    "\tmov rsi, rsp\n",
+    "\tmov rdx, 1\n",
+    "\tsyscall\n",
+    "\tadd rsp, 8\n",
     "\tret\n"
     ).to_string()
 }

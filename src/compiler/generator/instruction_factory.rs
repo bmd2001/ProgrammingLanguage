@@ -212,7 +212,7 @@ impl InstructionFactory {
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::X86_64, _) => {
                 concat!(
-                "\tlea rdi, [rel buffer+31]\n",
+                "\tlea rdi, [rel buffer+30]\n",
                 "\tcall int_to_string\n",
                 "\tmov rsi, rdi\n",
                 "\tcall print_string\n",

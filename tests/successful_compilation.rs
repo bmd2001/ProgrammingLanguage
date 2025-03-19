@@ -34,7 +34,7 @@ fn test_successful_compilation(){
     z = true && false
     {
         x = (12 + 8) * 5 - 20 // 3 % 9 + 50 // (8 - 2) * ((3 ** 4) - 7) + 100
-        print(786)
+        print(x)
     }
     exit(x)
     "#;
