@@ -31,9 +31,7 @@ fn get_int_to_str_aarch64() -> String{
     concat!(
     "int_to_string:\n",
     "\tmov x1, 10\n",
-    "\tmov x2, 1\n",
-    "\tb .int_to_string_loop\n",
-    "\tret\n\n",
+    "\tmov x2, 1\n\n",
     ".int_to_string_loop:\n",
     "\tudiv x3, x0, x1\n",
     "\tmsub x4, x3, x1, x0\n",
