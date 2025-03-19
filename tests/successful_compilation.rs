@@ -80,10 +80,10 @@ fn test_successful_compilation(){
             .expect("Failed to set execute permissions on the binary");
     }
     let run_output = if cfg!(windows) {
-        Command::new("start")
-            .args(&executable)
+        Command::new("cmd")
+            .args(&["/C", "start", executable.as_path().to_str().unwrap()])
             .output()
-            .expect("Failed to execute compiled binary")
+            .expect("Failed to execute compiled binary on Windows")
     } else {
         Command::new(&executable)
             .output()
