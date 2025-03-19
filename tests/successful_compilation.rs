@@ -21,6 +21,7 @@ fn test_successful_compilation(){
         }
         exec_file_path
     };
+    dbg!(&executable);
     
 
     fs::remove_dir_all(input_folder).ok();
