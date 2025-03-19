@@ -61,14 +61,11 @@ fn get_print_x86_64_linux() -> String {
 fn get_print_aarch64_linux() -> String {
     concat!(
     "print_string:\n",
-    "\tmov x8, 64\n", // syscall: sys_write
-    "\tmov x0, 1\n",  // stdout
-    "\tmov x2, 1\n",  // write 1 byte
-    ".loop:\n",
+    "\tmov x8, #64\n", // syscall: sys_write
+    "\tmov x0, #1\n",  // stdout
     "\tsvc #0\n",
-    "\tadd x1, x1, 1\n",
-    "\tldrb w3, [x1]\n",
-    "\tcbnz w3, .loop\n",
+    "\tldr x1, =newline\n",
+    "\tmov x2, #1\n",
     "\tret\n"
     ).to_string()
 }
