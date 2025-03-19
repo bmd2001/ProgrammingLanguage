@@ -56,6 +56,20 @@ fn test_successful_compilation(){
         String::from_utf8_lossy(&output.stdout)
     );
 
+    match fs::read_dir(output_folder) {
+        Ok(entries) => {
+            for entry in entries {
+                match entry {
+                    Ok(entry) => {
+                        dbg!(entry.path().display());
+                    }
+                    Err(e) => eprintln!("Error reading entry: {}", e),
+                }
+            }
+        }
+        Err(e) => eprintln!("Error opening directory: {}", e)
+    }
+
     // Run the compiled executable
     #[cfg(unix)]
     {
