@@ -65,7 +65,7 @@ fn test_successful_compilation(){
     }
     let run_output = if cfg!(windows) {
         Command::new("start")
-            .args(executable.canonicalize())
+            .args(&executable)
             .output()
             .expect("Failed to execute compiled binary")
     } else {
