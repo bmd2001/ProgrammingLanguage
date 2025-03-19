@@ -82,7 +82,7 @@ fn get_print_windows() -> String {
         "\tmov ecx, -11\n",       //STD_OUTPUT_HANDLE (-11)
         "\tcall GetStdHandle\n",  // Returns handle in rax
         "\tmov rcx, rax\n",       // Save handle in rcx
-        "\tled rdx, [rdi]\n",
+        "\tlea rdx, [rdi]\n",
         "\txor r9, r9\n",       // Save address in rsi
         "\txor r10, r10\n",
         "\tcall WriteFile\n",
