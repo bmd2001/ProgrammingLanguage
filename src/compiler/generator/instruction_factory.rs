@@ -118,7 +118,7 @@ impl InstructionFactory {
     pub fn get_program_header(&self) -> &str {
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::X86_64, OS::Windows) => concat!(
-                                            "extern ExitProcess\n",
+                                            "extern GetStdHandle, WriteFile, ExitProcess\n",
                                             "section .bss\n",
                                             "buffer resb 32\n",
                                             "section .text\n",
@@ -128,7 +128,7 @@ impl InstructionFactory {
                                 "section .bss\n",
                                 "buffer resb 32\n",
                                 "section .text\n",
-                                "\tglobal _start\n",
+                                "global _start\n",
                                 "_start:\n",),
             (Arch::AArch64, OS::Linux) => concat!(
                                         ".macro push reg\n",
@@ -164,7 +164,7 @@ impl InstructionFactory {
                                 "buffer: .skip 32\n\n",
                                 ".text\n",
                                 "_start:\n",),
-            (Arch::AArch64, OS::Windows) => "extern ExitProcess\nglobal _start\n_start:\n"
+            (Arch::AArch64, OS::Windows) => "extern GetStdHandle, WriteFile, ExitProcess\nglobal _start\n_start:\n"
         }
     }
 
@@ -220,7 +220,7 @@ impl InstructionFactory {
             },
             (Arch::AArch64, OS::Linux) => {
                 concat!(
-                "\tldr x7, buffer\n",
+                "\tldr x7, =buffer\n",
                 "\tadd x7, x7, 30\n",
                 "\tbl int_to_string\n",
                 "\tmov x1, x7\n",
@@ -429,18 +429,18 @@ mod test_architecture{
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::X86_64, OS::Windows) => assert_eq!(instr_factory.get_program_header(),
                                                         concat!(
-                                                        "extern ExitProcess\n",
+                                                        "extern GetStdHandle, WriteFile, ExitProcess\n",
                                                         "section .bss\n",
                                                         "buffer resb 32\n",
                                                         "section .text\n",
-                                                        "\tglobal _start\n",
-                                                        "_start:\n")),
+                                                        "global _start\n",
+                                                        "_start:\n",),),
             (Arch::X86_64, _) => assert_eq!(instr_factory.get_program_header(),
                                             concat!(
                                             "section .bss\n",
                                             "buffer resb 32\n",
                                             "section .text\n",
-                                            "\tglobal _start\n",
+                                            "global _start\n",
                                             "_start:\n",),),
             (Arch::AArch64, OS::Linux) => assert_eq!(instr_factory.get_program_header(), 
                                         concat!(
@@ -461,25 +461,25 @@ mod test_architecture{
             ),
             (Arch::AArch64, OS::MacOS) => assert_eq!(instr_factory.get_program_header(),
                                              concat!(
-                                             ".macro push reg\n",
-                                             "\tstr \\reg, [sp, #-16]!\n",
-                                             ".endm\n",
-                                             ".macro pop reg\n",
-                                             "\tldr \\reg, [sp], #16\n",
+                                            ".macro push reg\n",
+                                            "\tstr \\reg, [sp, #-16]!\n",
                                             ".endm\n",
-                                             ".macro LLD_ADDR xreg, label\n",
-                                             "\tadrp    \\xreg, \\label@PAGE\n",
-                                             "\tadd     \\xreg, \\xreg, \\label@PAGEOFF\n",
-                                             ".endm\n\n",
-                                             ".global _start\n",
-                                             ".align 4\n",
-                                             ".data\n",
-                                             "newline: .byte 0x0A\n",
-                                             ".bss\n",
-                                             "buffer: .skip 32\n\n",
-                                             ".text\n",
-                                             "_start:\n",)),
-            (Arch::AArch64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern ExitProcess\nglobal _start\n_start:\n"),
+                                            ".macro pop reg\n",
+                                            "\tldr \\reg, [sp], #16\n",
+                                            ".endm\n",
+                                            ".macro LLD_ADDR xreg, label\n",
+                                            "\tadrp    \\xreg, \\label@PAGE\n",
+                                            "\tadd     \\xreg, \\xreg, \\label@PAGEOFF\n",
+                                            ".endm\n\n",
+                                            ".global _start\n",
+                                            ".align 4\n",
+                                            ".data\n",
+                                            "newline: .byte 0x0A\n",
+                                            ".bss\n",
+                                            "buffer: .skip 32\n\n",
+                                            ".text\n",
+                                            "_start:\n")),
+            (Arch::AArch64, OS::Windows) => assert_eq!(instr_factory.get_program_header(), "extern GetStdHandle, WriteFile, ExitProcess\nglobal _start\n_start:\n"),
         }
     }
     

@@ -1,19 +1,13 @@
 use crate::utility::{TARGET_ARCH, Arch, TARGET_OS, OS};
 
 pub fn get_print_subroutine() -> String {
-    match TARGET_ARCH {
-        Arch::X86_64 => {
-            match TARGET_OS {
-                OS::Linux => get_print_x86_64_linux(),
-                _ => get_print_x86_64_mac(),
-            }
-        }
-        Arch::AArch64 => {
-            match TARGET_OS {
-                OS::Linux => get_print_aarch64_linux(),
-                _ => get_print_aarch64_mac(),
-            }
-        }
+    match (TARGET_ARCH, TARGET_OS) {
+        (Arch::X86_64, OS::Linux) => get_print_x86_64_linux(),
+        (Arch::X86_64, OS::MacOS) => get_print_x86_64_mac(),
+        (Arch::X86_64, OS::Windows) => get_print_windows(),
+        (Arch::AArch64, OS::Linux) => get_print_aarch64_linux(),
+        (Arch::AArch64, OS::MacOS) => get_print_aarch64_mac(),
+        _ => get_print_windows()
     }
 }
 
@@ -63,6 +57,7 @@ fn get_print_aarch64_linux() -> String {
     "\tsvc #0\n",
     "\tldr x1, =newline\n",
     "\tmov x2, #1\n",
+    "\tsvc #0\n",
     "\tret\n"
     ).to_string()
 }
@@ -80,6 +75,20 @@ fn get_print_aarch64_mac() -> String {
     ).to_string()
 }
 
+fn get_print_windows() -> String {
+    concat!(
+        "print_string:\n",
+        "\tmov r8, rcx\n",       // Save length
+        "\tmov ecx, -11\n",       //STD_OUTPUT_HANDLE (-11)
+        "\tcall GetStdHandle\n",  // Returns handle in rax
+        "\tmov rcx, rax\n",       // Save handle in rcx
+        "\tmov rdx, rdi\n",
+        "\txor r9, r9\n",       // Save address in rsi
+        "\tcall WriteFile\n",
+        "\tret",
+    ).to_string()
+}
+
 
 
 #[cfg(test)]
@@ -89,19 +98,12 @@ mod test_subroutine_print{
     #[test]
     fn test_subroutine(){
         let result = get_print_subroutine();
-        match TARGET_ARCH {
-            Arch::X86_64 => {
-                match TARGET_OS {
-                    OS::Linux => assert_eq!(result, get_print_x86_64_linux()),
-                    _ => assert_eq!(result, get_print_x86_64_mac()),
-                }
-            }
-            Arch::AArch64 => {
-                match TARGET_OS {
-                    OS::Linux => assert_eq!(result, get_print_aarch64_linux()),
-                    _ => assert_eq!(result, get_print_aarch64_mac())
-                }
-            }
+        match (TARGET_ARCH, TARGET_OS){
+            (Arch::X86_64, OS::Linux) => assert_eq!(result, get_print_x86_64_linux()),
+            (Arch::X86_64, OS::MacOS) => assert_eq!(result, get_print_x86_64_mac()),
+            (Arch::AArch64, OS::Linux) => assert_eq!(result, get_print_aarch64_linux()),
+            (Arch::AArch64, OS::MacOS) => assert_eq!(result, get_print_aarch64_mac()),
+            _ => assert_eq!(result, get_print_windows())
         }
     }
 }
