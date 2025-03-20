@@ -51,7 +51,7 @@ fn test_successful_compilation(){
 
     assert!(
         output.status.success(),
-        "Compiler failed with stderr: {}\nThe Compiler stdout was: {}",
+        "Compiler failed with stderr: {:?}\nThe Compiler stdout was: {:?}",
         String::from_utf8_lossy(&output.stderr),
         String::from_utf8_lossy(&output.stdout)
     );
@@ -93,7 +93,7 @@ fn test_successful_compilation(){
     // Ensure execution was successful
     assert!(
         run_output.status.success(),
-        "Execution Command {:?} failed.\n Execution failed with stderr: {}\nThe program stdout was: {}",
+        "Execution Command {:?} failed.\n Execution failed with stderr: {:?}\nThe program stdout was: {:?}",
         run_output,
         String::from_utf8_lossy(&run_output.stderr),
         String::from_utf8_lossy(&run_output.stdout)
