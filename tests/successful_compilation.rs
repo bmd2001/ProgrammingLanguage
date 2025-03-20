@@ -99,7 +99,7 @@ fn test_successful_compilation(){
         String::from_utf8_lossy(&run_output.stdout)
     );
     
-    assert!(String::from_utf8_lossy(&run_output.stdout).contains("786"), "The executable is not printing correctly. This was the output: \n{}", String::from_utf8_lossy(&run_output.stdout));
+    assert!(String::from_utf8_lossy(&run_output.stdout).contains("786"), "The executable is not printing correctly. This was the output: \n{:?}", String::from_utf8_lossy(&run_output.stdout));
 
     fs::remove_dir_all(input_folder).unwrap();
     fs::remove_dir_all(output_folder).unwrap()
