@@ -79,16 +79,9 @@ fn test_successful_compilation(){
         fs::set_permissions(&executable, Permissions::from_mode(0o755))
             .expect("Failed to set execute permissions on the binary");
     }
-    let run_output = if cfg!(windows) {
-        Command::new("cmd")
-            .args(&["/C", "start", executable.as_path().to_str().unwrap()])
+    let run_output = Command::new(&executable)
             .output()
-            .expect("Failed to execute compiled binary on Windows")
-    } else {
-        Command::new(&executable)
-            .output()
-            .expect("Failed to execute compiled binary")
-    };
+            .expect("Failed to execute compiled binary");
 
     // Ensure execution was successful
     assert!(
