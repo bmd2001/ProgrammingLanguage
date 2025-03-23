@@ -173,9 +173,10 @@ impl InstructionFactory {
     }
 
     pub fn get_exit_marker(&self) -> &str {
-        match TARGET_ARCH {
-            Arch::X86_64 => "syscall",
-            Arch::AArch64 => "svc #0",
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, OS::Windows) => "call ExitProcess",
+            (Arch::X86_64, _) => "syscall",
+            (Arch::AArch64, _) => "svc #0",
         }
     }
 
@@ -487,9 +488,11 @@ mod test_architecture{
     #[test]
     fn test_get_exit_marker(){
         let instr_factory = InstructionFactory{};
-        match TARGET_ARCH {
-            Arch::X86_64 => assert_eq!(instr_factory.get_exit_marker(),"syscall"),
-            Arch::AArch64 => assert_eq!(instr_factory.get_exit_marker(), "svc #0")
+        let exit_marker = instr_factory.get_exit_marker();
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, OS::Windows) => assert_eq!(exit_marker, "call ExitProcess"),
+            (Arch::X86_64, _) => assert_eq!(exit_marker, "syscall"),
+            (Arch::AArch64, _) => assert_eq!(exit_marker,"svc #0"),
         }
     }
     
