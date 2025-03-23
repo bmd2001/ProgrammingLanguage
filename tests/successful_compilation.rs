@@ -80,6 +80,7 @@ fn test_successful_compilation(){
             .expect("Failed to set execute permissions on the binary");
     }
     let run_output = Command::new(&executable)
+            .envs(std::env::vars())
             .output()
             .expect("Failed to execute compiled binary");
 
