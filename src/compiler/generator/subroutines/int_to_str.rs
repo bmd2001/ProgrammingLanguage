@@ -23,6 +23,7 @@ fn get_int_to_str_x86_64() -> String{
     "\tinc rcx\n",
     "\tcmp rax, 0\n",
     "\tjnz .int_to_string_loop\n",
+    "\tinc rdi\n",
     "\tret\n"
     ).to_string()
 }

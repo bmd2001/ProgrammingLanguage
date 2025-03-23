@@ -180,9 +180,10 @@ impl InstructionFactory {
     }
 
     pub fn get_exit_reg(&self) -> &str {
-        match TARGET_ARCH {
-            Arch::X86_64 => "rdi",
-            Arch::AArch64 => "x0",
+        match (TARGET_ARCH, TARGET_OS) { 
+            (Arch::X86_64, OS::Windows) => "rcx",
+            (Arch::X86_64, _) => "rdi",
+            (Arch::AArch64, _) => "x0",
         }
     }
     
@@ -495,9 +496,11 @@ mod test_architecture{
     #[test]
     fn test_get_exit_reg(){
         let instr_factory = InstructionFactory{};
-        match TARGET_ARCH {
-            Arch::X86_64 => assert_eq!(instr_factory.get_exit_reg(), "rdi"),
-            Arch::AArch64 => assert_eq!(instr_factory.get_exit_reg(), "x0")
+        let exit_reg = instr_factory.get_exit_reg();
+        match (TARGET_ARCH, TARGET_OS) {
+            (Arch::X86_64, OS::Windows) => assert_eq!(exit_reg, "rcx"),
+            (Arch::X86_64, _) => assert_eq!(exit_reg, "rdi"),
+            (Arch::AArch64, _) => assert_eq!(exit_reg, "x0"),
         }
     }
     
