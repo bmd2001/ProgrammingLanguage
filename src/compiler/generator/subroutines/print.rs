@@ -79,6 +79,7 @@ fn get_print_windows() -> String {
     concat!(
         "print_string:\n",
         "\tmov r8, rcx\n",       // Save length
+        "\tdec r8\n",
         "\tmov rcx, -11\n",       //STD_OUTPUT_HANDLE (-11)
         "\tcall GetStdHandle\n",  // Returns handle in rax
         "\tmov rcx, rax\n",       // Save handle in rcx
