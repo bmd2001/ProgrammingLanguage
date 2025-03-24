@@ -216,7 +216,6 @@ impl InstructionFactory {
                 concat!(
                 "\tlea rdi, [rel buffer+30]\n",
                 "\tcall int_to_string\n",
-                "\tmov rsi, rdi\n",
                 "\tcall print_string\n",
                 )
             },
