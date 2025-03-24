@@ -34,7 +34,7 @@ fn get_int_to_str_x86_64_win() -> String{
     concat!(
     "int_to_string:\n",
     "\tmov rbx, 10\n",
-    "\tmov rcx, 0\n",
+    "\tmov rcx, 1\n",
     ".int_to_string_loop:\n",
     "\txor rdx, rdx\n",
     "\tdiv rbx\n",

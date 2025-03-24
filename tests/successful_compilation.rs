@@ -37,6 +37,7 @@ fn test_successful_compilation(){
         x = (12 + 8) * 5 - 20 // 3 % 9 + 50 // (8 - 2) * ((3 ** 4) - 7) + 100
         print(x)
     }
+    exit(0)
     "#;
     fs::write(&test_file, source_code).expect("Unable to write file");
     
