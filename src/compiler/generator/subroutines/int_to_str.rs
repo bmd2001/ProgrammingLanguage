@@ -35,8 +35,6 @@ fn get_int_to_str_x86_64_win() -> String{
     "int_to_string:\n",
     "\tmov rbx, 10\n",
     "\tmov rcx, 0\n",
-    "\tcall .int_to_string_loop\n",
-    "\tret\n\n",
     ".int_to_string_loop:\n",
     "\txor rdx, rdx\n",
     "\tdiv rbx\n",
