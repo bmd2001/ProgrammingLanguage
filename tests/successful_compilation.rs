@@ -72,12 +72,13 @@ fn test_successful_compilation(){
     }
 
     // Run the compiled executable
-    if cfg!(unix){
+    #[cfg(unix)]{
         use std::fs::Permissions;
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&executable, Permissions::from_mode(0o755))
             .expect("Failed to set execute permissions on the binary");
-    } else if cfg!(windows) {
+    }
+    #[cfg(windows)]{
         let cmd = Command::new("powershell")
             .arg("-Command")
             .arg(format!("icacls {} /grant Everyone:F", &executable.to_str().expect(""))) // Example: grant full access
