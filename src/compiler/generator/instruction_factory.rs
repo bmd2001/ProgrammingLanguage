@@ -120,7 +120,7 @@ impl InstructionFactory {
             (Arch::X86_64, OS::Windows) => concat!(
                                             "extern GetStdHandle, WriteFile, ExitProcess\n",
                                             "section .data\n",
-                                            "buffer db 32 dup(0)\n",
+                                            "buffer times 32 dup(0)\n",
                                             "section .text\n",
                                             "global _start\n",
                                             "_start:\n",),
@@ -432,7 +432,7 @@ mod test_architecture{
                                                         concat!(
                                                         "extern GetStdHandle, WriteFile, ExitProcess\n",
                                                         "section .data\n",
-                                                        "buffer db 32 dup(0)\n",
+                                                        "buffer times 32 dup(0)\n",
                                                         "section .text\n",
                                                         "global _start\n",
                                                         "_start:\n",),),
