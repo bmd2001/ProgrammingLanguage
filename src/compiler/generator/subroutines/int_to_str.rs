@@ -46,7 +46,6 @@ fn get_int_to_str_x86_64_win() -> String{
     "\tjnz .int_to_string_loop\n",
     "\tinc rdi\n",
     "\tmov rax, rcx\n",
-    "\tdec rax\n",
     "\tret\n"
     ).to_string()
 }
