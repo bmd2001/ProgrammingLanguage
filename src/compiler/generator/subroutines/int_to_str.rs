@@ -33,11 +33,11 @@ fn get_int_to_str_x86_64() -> String{
 fn get_int_to_str_x86_64_win() -> String{
     concat!(
     "int_to_string:\n",
-    "\tmov rbx, 10\n",
+    "\tmov r8, 10\n",
     "\tmov rcx, 0\n",
     ".int_to_string_loop:\n",
     "\txor rdx, rdx\n",
-    "\tdiv rbx\n",
+    "\tdiv r8\n",
     "\tadd dl, '0'\n",
     "\tmov [rdi], dl\n",
     "\tdec rdi\n",
