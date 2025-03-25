@@ -513,7 +513,7 @@ mod test_architecture{
         let expected_instr = match (TARGET_ARCH, TARGET_OS){
             (Arch::X86_64, OS::Linux) => concat!("mov rax, 60\n",
                                                 "\tsyscall"),
-            (Arch::X86_64, OS::Windows) => "call ExitProcess",
+            (Arch::X86_64, OS::Windows) => "sub rsp, 8 * 5\n\tcall ExitProcess",
             (Arch::X86_64, _) => concat!("mov rax, 0x2000001\n",
                                         "\tsyscall"),
             (Arch::AArch64, OS::Linux) => concat!("mov x8, #93\n",
