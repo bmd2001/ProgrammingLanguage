@@ -119,8 +119,8 @@ impl InstructionFactory {
         match (TARGET_ARCH, TARGET_OS) {
             (Arch::X86_64, OS::Windows) => concat!(
                                             "extern GetStdHandle, WriteFile, ExitProcess\n",
-                                            "section .data\n",
-                                            "buffer times 32 dup(0)\n",
+                                            "section .bss\n",
+                                            "buffer resb 32\n",
                                             "section .text\n",
                                             "global _start\n",
                                             "_start:\n",),
@@ -431,8 +431,8 @@ mod test_architecture{
             (Arch::X86_64, OS::Windows) => assert_eq!(instr_factory.get_program_header(),
                                                         concat!(
                                                         "extern GetStdHandle, WriteFile, ExitProcess\n",
-                                                        "section .data\n",
-                                                        "buffer times 32 dup(0)\n",
+                                                        "section .bss\n",
+                                                        "buffer resb 32\n",
                                                         "section .text\n",
                                                         "global _start\n",
                                                         "_start:\n",),),
