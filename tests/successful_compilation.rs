@@ -35,6 +35,7 @@ fn test_successful_compilation(){
     z = true && false
     {
         x = (12 + 8) * 5 - 20 // 3 % 9 + 50 // (8 - 2) * ((3 ** 4) - 7) + 100
+        print(x)
     }
     exit(0)
     "#;
@@ -71,12 +72,17 @@ fn test_successful_compilation(){
     }
 
     // Run the compiled executable
-    #[cfg(unix)]
-    {
+    if cfg!(unix){
         use std::fs::Permissions;
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&executable, Permissions::from_mode(0o755))
             .expect("Failed to set execute permissions on the binary");
+    } else if cfg!(windows) {
+        let cmd = Command::new("powershell")
+            .arg("-Command")
+            .arg(format!("icacls {} /grant Everyone:F", &executable.to_str().expect(""))) // Example: grant full access
+            .output();
+        assert!(cmd.unwrap().status.success());
     }
     let run_output = Command::new(&executable)
             .envs(std::env::vars())
