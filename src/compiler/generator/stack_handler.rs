@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::utility::{Arch, TARGET_ARCH};
 
 #[derive(Debug)]
 #[derive(PartialEq)]
@@ -36,7 +37,10 @@ impl StackHandler{
     }
     
     pub fn add_variable(&mut self, name: String, r#type: String){
-        self.m_stack_size += 8;
+        self.m_stack_size += match TARGET_ARCH {
+            Arch::X86_64 => {8}
+            Arch::AArch64 => {16}
+        };
         let variable = Variable::new(name.clone(), r#type, self.m_scope_depth, self.m_stack_size);
         self.m_variables.entry(name).or_insert(vec![]).push(variable);
     }
@@ -75,25 +79,33 @@ mod test_stack_handler{
 
     #[test]
     fn test_add_variable(){
+        let expected_stack_size = match TARGET_ARCH {
+            Arch::X86_64 => {8}
+            Arch::AArch64 => {16}
+        };
         let mut stack = StackHandler::new();
         stack.add_variable("Test".to_string(), "Test".to_string());
-        assert_eq!(stack.m_stack_size, 8);
+        assert_eq!(stack.m_stack_size, expected_stack_size);
         assert_eq!(stack.m_scope_depth, 0);
 
         assert!(stack.m_variables.get(&"Test".to_string()).is_some());
         let test_variables = stack.m_variables.get(&"Test".to_string()).expect("There should have been a check that there was a variable in the map");
-        assert_eq!(test_variables, &vec![Variable::new("Test".to_string(), "Test".to_string(), 0, 8)])
+        assert_eq!(test_variables, &vec![Variable::new("Test".to_string(), "Test".to_string(), 0, expected_stack_size)])
     }
 
     #[test]
     fn test_get_offset(){
+        let expected_stack_offset = match TARGET_ARCH {
+            Arch::X86_64 => {8}
+            Arch::AArch64 => {16}
+        };
         let mut stack = StackHandler::new();
         stack.add_variable("Test".to_string(), "Test".to_string());
         assert_eq!(stack.get_offset("Test".to_string()), 0);
 
         stack.add_variable("Test2".to_string(), "Test2".to_string());
         assert_eq!(stack.get_offset("Test2".to_string()), 0);
-        assert_eq!(stack.get_offset("Test".to_string()), 8);
+        assert_eq!(stack.get_offset("Test".to_string()), expected_stack_offset);
     }
 
     #[test]

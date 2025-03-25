@@ -21,6 +21,7 @@ fn test_successful_compilation(){
         }
         exec_file_path
     };
+    dbg!(&executable);
     
 
     fs::remove_dir_all(input_folder).ok();
@@ -29,14 +30,14 @@ fn test_successful_compilation(){
     fs::create_dir_all(output_folder).expect("Failed to create output folder");
     
     let source_code = r#"
-    x = ((3+5)*2 + (12//4))%7+(18//(6-3))*(2**3-4) + 10
+    x = 0
     y = true
     z = true && false
     {
-        x = 0
-        exit(x)
+        x = (12 + 8) * 5 - 20 // 3 % 9 + 50 // (8 - 2) * ((3 ** 4) - 7) + 100
+        print(x)
     }
-    exit(x)
+    exit(0)
     "#;
     fs::write(&test_file, source_code).expect("Unable to write file");
     
@@ -44,41 +45,61 @@ fn test_successful_compilation(){
         .args(["run", test_file.to_str().unwrap(), "--outdir", output_folder.to_str().unwrap()])
         .output()
         .expect("Failed to run compiler");
+    
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+    print!("{}", String::from_utf8_lossy(&output.stderr));
 
     assert!(
         output.status.success(),
-        "Compiler failed with stderr: {}\nThe Compiler stdout was: {}",
+        "Compiler failed with stderr: {:?}\nThe Compiler stdout was: {:?}",
         String::from_utf8_lossy(&output.stderr),
         String::from_utf8_lossy(&output.stdout)
     );
 
+    dbg!(std::env::current_dir().unwrap().as_path());
+    match fs::read_dir(output_folder) {
+        Ok(entries) => {
+            for entry in entries {
+                match entry {
+                    Ok(entry) => {
+                        dbg!(entry.path().display());
+                    }
+                    Err(e) => eprintln!("Error reading entry: {}", e),
+                }
+            }
+        }
+        Err(e) => eprintln!("Error opening directory: {}", e)
+    }
+
     // Run the compiled executable
-    #[cfg(unix)]
-    {
+    #[cfg(unix)]{
         use std::fs::Permissions;
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&executable, Permissions::from_mode(0o755))
             .expect("Failed to set execute permissions on the binary");
     }
-    let run_output = if cfg!(windows) {
-        Command::new("cmd")
-            .args(executable.canonicalize())
+    #[cfg(windows)]{
+        let cmd = Command::new("powershell")
+            .arg("-Command")
+            .arg(format!("icacls {} /grant Everyone:F", &executable.to_str().expect(""))) // Example: grant full access
+            .output();
+        assert!(cmd.unwrap().status.success());
+    }
+    let run_output = Command::new(&executable)
+            .envs(std::env::vars())
             .output()
-            .expect("Failed to execute compiled binary")
-    } else {
-        Command::new(&executable)
-            .output()
-            .expect("Failed to execute compiled binary")
-    };
+            .expect("Failed to execute compiled binary");
 
     // Ensure execution was successful
     assert!(
         run_output.status.success(),
-        "Execution Command {:?} failed.\n Execution failed with stderr: {}\nThe program stdout was: {}",
+        "Execution Command {:?} failed.\n Execution failed with stderr: {:?}\nThe program stdout was: {:?}",
         run_output,
         String::from_utf8_lossy(&run_output.stderr),
         String::from_utf8_lossy(&run_output.stdout)
     );
+    
+    assert!(String::from_utf8_lossy(&run_output.stdout).contains("786"), "The executable is not printing correctly. This was the output: \n{:?}", String::from_utf8_lossy(&run_output.stdout));
 
     fs::remove_dir_all(input_folder).unwrap();
     fs::remove_dir_all(output_folder).unwrap()

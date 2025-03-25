@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 use either::{Either, Left, Right};
-use crate::compiler::parser::{NodeArithmeticExpr, NodeStmt, NodeExit, ParserErrorType, ParserLogger, ExpressionFactory, NodeArithmeticOperation, NodeBaseExpr, NodeScope, NodeVariableAssignment};
+use crate::compiler::parser::{NodeArithmeticExpr, NodeStmt, NodeExit, NodePrint, ParserErrorType, ParserLogger, ExpressionFactory, NodeArithmeticOperation, NodeBaseExpr, NodeScope, NodeVariableAssignment};
 use crate::compiler::parser::token_stream::TokenStream;
 use crate::compiler::tokenizer::Token;
 
@@ -25,6 +25,9 @@ impl<'a> StatementFactory<'a>{
     fn parse_stmt(&mut self) -> Option<NodeStmt> {
         if let Some(exit_node) = self.parse_exit(){
             Some(NodeStmt::Exit(exit_node))
+        }
+        else if let Some(print_node) = self.parse_print(){ 
+            Some(NodeStmt::Print(print_node))
         }
         else if let Some(variable_assignment) = self.parse_variable_assignment(){
             Some(NodeStmt::ID(variable_assignment))
@@ -65,6 +68,43 @@ impl<'a> StatementFactory<'a>{
         match expr{
             Some(Left(operation)) => {Some(NodeExit { expr: NodeArithmeticExpr::Operation(*operation) })}
             Some(Right(base)) => {Some(NodeExit { expr: NodeArithmeticExpr::Base(base) })}
+            None => {
+                //TODO This should report an error. There should be an exit code passed in between parenthesis
+                None
+            }
+        }
+    }
+    
+    fn parse_print(&mut self) -> Option<NodePrint>{
+        // Check if the first token is 'print'
+        if !matches!(self.m_token_stream.peek(0), Some(Token::Print { .. })) {
+            return None;
+        }
+        // Check if the second token is an opening parenthesis
+        if !matches!(self.m_token_stream.peek(1), Some(Token::OpenBracket { .. })) {
+            let token = self.m_token_stream.peek(0).unwrap();
+            self.log_error(ParserErrorType::ErrExitOpenBracketMissing, &token);
+            return None;
+        }
+        // Advance past 'exit' and '(' tokens
+        self.m_token_stream.advance(2);
+
+        // Parse the arithmetic expression
+        let expr = self.parse_arithmetic_expr();
+
+        // Check for closing parenthesis
+        if !matches!(self.m_token_stream.peek(0), Some(Token::ClosedBracket {..})) {
+            self.log_error(ParserErrorType::ErrExitClosedBracketMissing, &self.m_token_stream.peek_back(1).unwrap());
+            return None;
+        }
+
+        // Advance past the closing parenthesis
+        self.m_token_stream.advance(1);
+
+        // Return the parsed NodeExit
+        match expr{
+            Some(Left(operation)) => {Some(NodePrint { expr: NodeArithmeticExpr::Operation(*operation) })}
+            Some(Right(base)) => {Some(NodePrint { expr: NodeArithmeticExpr::Base(base) })}
             None => {
                 //TODO This should report an error. There should be an exit code passed in between parenthesis
                 None
@@ -232,6 +272,95 @@ mod test_statement_factory{
             Token::OpenBracket {span: dummy_span},
             Token::Number { value: 1.to_string(), span: dummy_span }],
             logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert!(res.is_empty());
+    }
+
+    #[test]
+    fn test_base_print(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Print {span: dummy_span},
+            Token::OpenBracket {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::ClosedBracket {span: dummy_span}],
+                                                logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert_eq!(res.len(), 1);
+    }
+
+    #[test]
+    fn test_operation_print(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Print {span: dummy_span},
+            Token::OpenBracket {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::Operator(Operator::Plus {span: dummy_span}),
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::ClosedBracket {span: dummy_span}],
+                                                logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert_eq!(res.len(), 1);
+    }
+
+    #[test]
+    fn test_missing_print_argument(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Print {span: dummy_span},
+            Token::OpenBracket {span: dummy_span},
+            Token::ClosedBracket {span: dummy_span}],
+                                                logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert!(res.is_empty());
+    }
+
+    #[test]
+    fn test_print_missing_open_bracket(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Print {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span },
+            Token::ClosedBracket {span: dummy_span}],
+                                                logger.clone()
+        );
+        let mut factory = StatementFactory::new(&mut token_stream, logger);
+        let res : &mut Vec<NodeStmt> = &mut Vec::new();
+
+        factory.create(res);
+        assert!(res.is_empty());
+    }
+
+    #[test]
+    fn test_print_missing_closed_bracket(){
+        let dummy_span = Span::new(0, 0, 0);
+        let logger = setup_logger();
+        let mut token_stream = TokenStream::new(vec![
+            Token::Print {span: dummy_span},
+            Token::OpenBracket {span: dummy_span},
+            Token::Number { value: 1.to_string(), span: dummy_span }],
+                                                logger.clone()
         );
         let mut factory = StatementFactory::new(&mut token_stream, logger);
         let res : &mut Vec<NodeStmt> = &mut Vec::new();
